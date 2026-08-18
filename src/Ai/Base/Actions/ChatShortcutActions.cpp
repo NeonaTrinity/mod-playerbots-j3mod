@@ -5,11 +5,15 @@
 
 #include "ChatShortcutActions.h"
 
+#include "CharmInfo.h"
 #include "Event.h"
 #include "Formations.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
 #include "PositionValue.h"
+#include "Pet.h"
+#include "SpellInfo.h"
+#include "SpellMgr.h"
 
 void PositionsResetAction::ResetReturnPosition()
 {
@@ -228,6 +232,97 @@ bool TankAttackChatShortcutAction::Execute(Event /*event*/)
     botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
         "attacking", "Attacking", {}));
     return true;
+}
+
+bool TakeAggroChatShortcutAction::Execute(Event event)
+{
+    Player* requester = event.getOwner() ? event.getOwner() : GetMaster();
+    if (!requester)
+        return false;
+
+    ObjectGuid targetGuid = requester->GetTarget();
+    if (!targetGuid)
+    {
+        botAI->TellError("Select the enemy you want me to take aggro from first.");
+        return false;
+    }
+
+    Unit* target = botAI->GetUnit(targetGuid);
+    if (!target || !target->IsAlive() || bot->IsFriendlyTo(target))
+    {
+        botAI->TellError("I cannot take aggro from that target.");
+        return false;
+    }
+
+    // Make the explicit target the bot's combat target as well.
+    context->GetValue<Unit*>("current target")->Set(target);
+    context->GetValue<GuidVector>("prioritized targets")->Set({targetGuid});
+
+    bool taunted = false;
+
+    // Scoped override: only this immediate command is allowed to taunt a mob off
+    // the main tank. Normal AI casts remain protected before and after this block.
+    botAI->BeginTakeAggroOverride(target);
+    switch (bot->getClass())
+    {
+        case CLASS_WARRIOR:
+            taunted = botAI->CastSpell("taunt", target);
+            break;
+        case CLASS_PALADIN:
+            taunted = botAI->CastSpell("hand of reckoning", target);
+            break;
+        case CLASS_DEATH_KNIGHT:
+            taunted = botAI->CastSpell("dark command", target);
+            break;
+        case CLASS_DRUID:
+            taunted = botAI->CastSpell("growl", target);
+            break;
+        default:
+            break;
+    }
+    botAI->EndTakeAggroOverride();
+
+    // If the bot itself has no usable taunt, explicitly force one learned pet taunt.
+    // PetAI's normal autocast path remains main-tank protected; forced casts are the
+    // one-shot escape hatch used by this command.
+    if (!taunted)
+    {
+        if (Pet* pet = bot->GetPet())
+        {
+            CharmInfo* charmInfo = pet->GetCharmInfo();
+            if (charmInfo)
+            {
+                for (auto const& [spellId, petSpell] : pet->m_spells)
+                {
+                    (void)petSpell;
+                    if (!pet->HasSpell(spellId))
+                        continue;
+
+                    SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+                    if (!spellInfo)
+                        continue;
+
+                    if (!spellInfo->HasAura(SPELL_AURA_MOD_TAUNT) &&
+                        !spellInfo->HasEffect(SPELL_EFFECT_ATTACK_ME))
+                        continue;
+
+                    charmInfo->SetForcedSpell(spellId);
+                    charmInfo->SetForcedTargetGUID(targetGuid);
+                    taunted = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (taunted)
+    {
+        botAI->TellMasterNoFacing("Taking aggro from " + target->GetName() + ".");
+        return true;
+    }
+
+    botAI->TellError("I have no usable taunt for that target right now.");
+    return false;
 }
 
 bool MaxDpsChatShortcutAction::Execute(Event /*event*/)

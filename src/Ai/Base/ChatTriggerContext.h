@@ -149,6 +149,7 @@ public:
         creators["glyph equip"] = &ChatTriggerContext::glyph_equip; // Added for custom Glyphs
         creators["pet"] = &ChatTriggerContext::pet;
         creators["pet attack"] = &ChatTriggerContext::pet_attack;
+        creators["takeaggro"] = &ChatTriggerContext::takeaggro;
         creators["roll"] = &ChatTriggerContext::roll_action;
         creators["wait for attack time"] = &ChatTriggerContext::wait_for_attack_time;
         creators["focus heal"] = &ChatTriggerContext::focus_heal;
@@ -201,6 +202,7 @@ private:
     static Trigger* flee(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "flee"); }
     static Trigger* grind(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "grind"); }
     static Trigger* tank_attack(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "tank attack"); }
+    static Trigger* takeaggro(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "takeaggro"); }
     static Trigger* stay(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "stay"); }
     static Trigger* follow(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "follow"); }
     static Trigger* move_from_group(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "move from group"); }

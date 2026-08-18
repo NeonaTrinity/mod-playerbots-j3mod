@@ -21,17 +21,24 @@ public:
             return;
 
         Player* bot = botAI->GetBot();
+
+        // DML: never choose a target that is already attacking the designated
+        // main tank, unless this exact target is under an explicit takeaggro override.
+        if (Unit* victim = threatMgr->GetCurrentVictim())
+        {
+            if (Player* victimPlayer = victim->ToPlayer())
+            {
+                if (victimPlayer != bot && botAI->IsMainTank(victimPlayer) &&
+                    !botAI->IsTakeAggroOverride(creature))
+                    return;
+            }
+        }
+
         float threat = threatMgr->GetThreat(bot);
         if (!result)
         {
             minThreat = threat;
             result = creature;
-        }
-        // neglect if victim is main tank, or no victim (for untauntable target)
-        if (Unit* victim = threatMgr->GetCurrentVictim())
-        {
-            if (victim->ToPlayer() && botAI->IsMainTank(victim->ToPlayer()))
-                return;
         }
         if (minThreat >= threat)
         {
@@ -49,17 +56,33 @@ class FindTankTargetSmartStrategy : public FindTargetStrategy
 public:
     FindTankTargetSmartStrategy(PlayerbotAI* botAI) : FindTargetStrategy(botAI) {}
 
-    void CheckAttacker(Unit* attacker, ThreatManager* /*threatMgr*/) override
+    void CheckAttacker(Unit* attacker, ThreatManager* threatMgr) override
     {
+        if (!attacker || !attacker->IsAlive())
+            return;
+
+        // DML: the active smart tank selector must honor the raid main-tank flag.
+        // The older FindTargetForTankStrategy below already had this protection,
+        // but TankTargetValue::Calculate() currently uses this smart strategy instead.
+        if (threatMgr)
+        {
+            if (Unit* victim = threatMgr->GetCurrentVictim())
+            {
+                if (Player* victimPlayer = victim->ToPlayer())
+                {
+                    if (victimPlayer != botAI->GetBot() && botAI->IsMainTank(victimPlayer) &&
+                        !botAI->IsTakeAggroOverride(attacker))
+                        return;
+                }
+            }
+        }
+
         if (Group* group = botAI->GetBot()->GetGroup())
         {
             ObjectGuid guid = group->GetTargetIcon(4);
             if (guid && attacker->GetGUID() == guid)
                 return;
         }
-        if (!attacker->IsAlive())
-            return;
-
         if (!result || IsBetter(attacker, result))
             result = attacker;
     }

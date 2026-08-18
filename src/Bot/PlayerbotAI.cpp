@@ -25,6 +25,7 @@
 #include "GameObjectData.h"
 #include "GameTime.h"
 #include "GuildMgr.h"
+#include "Group.h"
 #include "LFGMgr.h"
 #include "LastMovementValue.h"
 #include "LastSpellCastValue.h"
@@ -60,6 +61,22 @@
 
 constexpr uint32 SPELL_TITAN_GRIP = 49152;
 constexpr uint32 SPELL_DK_FROST_PRESENCE = 48263;
+constexpr uint32 SPELL_PALADIN_RIGHTEOUS_DEFENSE = 31789;
+
+namespace
+{
+bool IsDmlTauntSpell(SpellInfo const* spellInfo)
+{
+    if (!spellInfo)
+        return false;
+
+    // Righteous Defense targets a friendly unit rather than the hostile unit(s)
+    // it taunts, so keep the spell-ID check in addition to generic taunt effects.
+    return spellInfo->Id == SPELL_PALADIN_RIGHTEOUS_DEFENSE ||
+           spellInfo->HasAura(SPELL_AURA_MOD_TAUNT) ||
+           spellInfo->HasEffect(SPELL_EFFECT_ATTACK_ME);
+}
+}
 
 std::vector<std::string> PlayerbotAI::dispel_whitelist = {
     "mutating injection",
@@ -3231,6 +3248,90 @@ bool PlayerbotAI::HasAnyAuraOf(Unit* player, ...)
     return false;
 }
 
+void PlayerbotAI::BeginTakeAggroOverride(Unit* target)
+{
+    takeAggroOverrideActive = target != nullptr;
+    takeAggroOverrideTarget = target ? target->GetGUID() : ObjectGuid::Empty;
+}
+
+void PlayerbotAI::EndTakeAggroOverride()
+{
+    takeAggroOverrideActive = false;
+    takeAggroOverrideTarget = ObjectGuid::Empty;
+}
+
+bool PlayerbotAI::IsTakeAggroOverride(Unit* target) const
+{
+    return takeAggroOverrideActive && target && target->GetGUID() == takeAggroOverrideTarget;
+}
+
+bool PlayerbotAI::ShouldBlockMainTankTaunt(SpellInfo const* spellInfo, Unit* target) const
+{
+    if (!IsDmlTauntSpell(spellInfo) || !target)
+        return false;
+
+    if (IsTakeAggroOverride(target))
+        return false;
+
+    // Righteous Defense is cast on the friendly player whose attackers should be taunted.
+    if (spellInfo->Id == SPELL_PALADIN_RIGHTEOUS_DEFENSE)
+    {
+        if (Player* protectedPlayer = target->ToPlayer())
+            return protectedPlayer != bot && IsMainTank(protectedPlayer);
+    }
+
+    // Single-target taunts: do not steal a hostile target whose current victim
+    // is the group's designated main tank.
+    if (Unit* victim = target->GetVictim())
+    {
+        if (Player* victimPlayer = victim->ToPlayer())
+            if (victimPlayer != bot && IsMainTank(victimPlayer))
+                return true;
+    }
+
+    // Self/area taunts (Challenging Shout/Roar, etc.) can hit several enemies.
+    // Block the cast only when one of the main tank's current attackers is inside
+    // the actual taunt effect radius, so off-tanks can still use AoE taunts elsewhere.
+    if (target == bot || spellInfo->IsTargetingArea())
+    {
+        float tauntRadius = 0.0f;
+        for (SpellEffectInfo const& effect : spellInfo->Effects)
+        {
+            if (effect.IsAura(SPELL_AURA_MOD_TAUNT) || effect.IsEffect(SPELL_EFFECT_ATTACK_ME))
+                tauntRadius = std::max(tauntRadius, effect.CalcRadius(bot));
+        }
+
+        if (tauntRadius > 0.0f)
+        {
+            Group* group = bot->GetGroup();
+            if (group)
+            {
+                Player* mainTank = nullptr;
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                {
+                    Player* member = ref->GetSource();
+                    if (member && member != bot && IsMainTank(member))
+                    {
+                        mainTank = member;
+                        break;
+                    }
+                }
+
+                if (mainTank)
+                {
+                    for (Unit* attacker : mainTank->getAttackers())
+                    {
+                        if (attacker && attacker->IsAlive() && bot->GetDistance(attacker) <= tauntRadius + 1.0f)
+                            return true;
+                    }
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
 bool PlayerbotAI::CanCastSpell(std::string const name, Unit* target, Item* itemTarget)
 {
     return CanCastSpell(aiObjectContext->GetValue<uint32>("spell id", name)->Get(), target, true, itemTarget);
@@ -3312,6 +3413,9 @@ bool PlayerbotAI::CanCastSpell(uint32 spellid, Unit* target, bool checkHasSpell,
         }
         return false;
     }
+
+    if (ShouldBlockMainTankTaunt(spellInfo, target))
+        return false;
 
     if ((bot->GetShapeshiftForm() == FORM_FLIGHT || bot->GetShapeshiftForm() == FORM_FLIGHT_EPIC) && !bot->IsInCombat())
     {
@@ -3550,6 +3654,9 @@ bool PlayerbotAI::CastSpell(uint32 spellId, Unit* target, Item* itemTarget)
 
     SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
     if (!spellInfo)
+        return false;
+
+    if (ShouldBlockMainTankTaunt(spellInfo, target))
         return false;
 
     Pet* pet = bot->GetPet();

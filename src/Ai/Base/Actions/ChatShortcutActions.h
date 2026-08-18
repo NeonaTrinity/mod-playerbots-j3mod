@@ -77,6 +77,14 @@ public:
     bool Execute(Event event) override;
 };
 
+class TakeAggroChatShortcutAction : public Action
+{
+public:
+    TakeAggroChatShortcutAction(PlayerbotAI* botAI) : Action(botAI, "takeaggro") {}
+
+    bool Execute(Event event) override;
+};
+
 class MaxDpsChatShortcutAction : public Action
 {
 public:

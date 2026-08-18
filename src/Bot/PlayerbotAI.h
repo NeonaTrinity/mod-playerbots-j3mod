@@ -497,6 +497,12 @@ public:
 
     virtual bool CanCastSpell(std::string const name, Unit* target, Item* itemTarget = nullptr);
     virtual bool CastSpell(std::string const name, Unit* target, Item* itemTarget = nullptr);
+
+    // DML: Main-tank taunt protection. The takeaggro chat command uses this
+    // as a scoped, one-shot override for the requester's selected target.
+    void BeginTakeAggroOverride(Unit* target);
+    void EndTakeAggroOverride();
+    bool IsTakeAggroOverride(Unit* target) const;
     virtual bool HasSpell(std::string const spellName) const;
     virtual bool HasAura(std::string const spellName, Unit* player, bool maxStack = false, bool checkIsOwner = false,
                          int maxAmount = -1, bool checkDuration = false);
@@ -615,6 +621,7 @@ private:
     Item* FindItemInInventory(std::function<bool(ItemTemplate const*)> checkItem) const;
     void HandleCommands();
     void HandleCommand(uint32 type, const std::string& text, Player& fromPlayer, const uint32 lang = LANG_UNIVERSAL);
+    bool ShouldBlockMainTankTaunt(SpellInfo const* spellInfo, Unit* target) const;
     inline bool IsValidUnit(const Unit* unit) const
     {
         return unit && unit->IsInWorld() && !unit->IsDuringRemoveFromWorld();
@@ -650,6 +657,10 @@ protected:
     Position jumpDestination = Position();
     uint32 nextTransportCheck = 0;
     bool spellInterruptRequested = false;
+
+    // DML: scoped permission used only while executing the explicit takeaggro command.
+    bool takeAggroOverrideActive = false;
+    ObjectGuid takeAggroOverrideTarget = ObjectGuid::Empty;
 };
 
 #endif

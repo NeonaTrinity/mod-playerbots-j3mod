@@ -1,0 +1,6 @@
+Place in azerothcore server files
+
+added layer of taunt protection.
+compile modfied azerothcore server file 
+prevents pet taunt from main tank.
+will use a hook from module in future update
