@@ -1,3 +1,7 @@
+
+Experimental Custom playerbots branch for J3mod. currently replies on a modified azerothcore. not for general use at this time.
+
+
 <p align="center">
     <a href="https://github.com/mod-playerbots/mod-playerbots/blob/master/README.md">English</a>
     |
