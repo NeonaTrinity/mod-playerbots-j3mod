@@ -1,16 +1,10 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
 #include "UPMultipliers.h"
-#include "Action.h"
-#include "ChooseTargetActions.h"
-#include "GenericSpellActions.h"
-#include "MovementActions.h"
 #include "UPActions.h"
+#include "GenericSpellActions.h"
+#include "ChooseTargetActions.h"
+#include "MovementActions.h"
 #include "UPTriggers.h"
+#include "Action.h"
 
 float SkadiMultiplier::GetValue(Action* action)
 {

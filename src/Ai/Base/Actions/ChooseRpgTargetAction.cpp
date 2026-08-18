@@ -1,8 +1,9 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
+
+#include <random>
 
 #include "ChooseRpgTargetAction.h"
 #include "BudgetValues.h"
@@ -11,14 +12,13 @@
 #include "Formations.h"
 #include "GuildCreateActions.h"
 #include "Playerbots.h"
-#include "PossibleRpgTargetsValue.h"
 #include "RpgSubActions.h"
 #include "ServerFacade.h"
-#include <random>
+#include "PossibleRpgTargetsValue.h"
 
 bool ChooseRpgTargetAction::HasSameTarget(ObjectGuid guid, uint32 max, GuidVector const& nearGuids)
 {
-    if (botAI->HasGameClientMaster())
+    if (botAI->HasRealPlayerMaster())
         return false;
 
     uint32 num = 0;
@@ -116,8 +116,9 @@ bool ChooseRpgTargetAction::Execute(Event /*event*/)
     GuidPosition masterRpgTarget;
     if (master && master != bot && GET_PLAYERBOT_AI(master) && master->GetMapId() == bot->GetMapId() && !master->IsBeingTeleported())
     {
-        Player* player = master;
-        masterRpgTarget = PAI_VALUE(GuidPosition, "rpg target");
+        //TODO Implement
+        Player* player = botAI->GetMaster();
+        //GuidPosition masterRpgTarget = PAI_VALUE(GuidPosition, "rpg target"); //not used, line marked for removal.
     }
     else
         master = nullptr;
@@ -203,7 +204,6 @@ bool ChooseRpgTargetAction::Execute(Event /*event*/)
 
     SET_AI_VALUE(std::string, "next rpg action", "");
 
-    // Only fires when following a playerbot master.
     for (auto it = begin(targets); it != end(targets);)
     {
         //Remove empty targets.
@@ -311,7 +311,7 @@ bool ChooseRpgTargetAction::isFollowValid(Player* bot, WorldPosition pos)
 
     bool inDungeon = false;
 
-    if (IsRealPlayer(botAI->GetMaster()))
+    if (botAI->HasActivePlayerMaster())
     {
         if (realMaster->IsInWorld() && realMaster->GetMap()->IsDungeon() && bot->GetMapId() == realMaster->GetMapId())
             inDungeon = true;
@@ -333,10 +333,10 @@ bool ChooseRpgTargetAction::isFollowValid(Player* bot, WorldPosition pos)
     Formation* formation = AI_VALUE(Formation*, "formation");
     float distance = groupLeader->GetDistance2d(pos.GetPositionX(), pos.GetPositionY());
 
-    if (!IsRealPlayer(botAI->GetMaster()) && distance < 50.0f)
+    if (!botAI->HasActivePlayerMaster() && distance < 50.0f)
     {
         Player* player = groupLeader;
-        if ((groupLeader && !groupLeader->isMoving()) ||
+        if (groupLeader && !groupLeader->isMoving() ||
             PAI_VALUE(WorldPosition, "last long move").distance(pos) < sPlayerbotAIConfig.reactDistance)
             return true;
     }

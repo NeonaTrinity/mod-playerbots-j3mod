@@ -1,21 +1,16 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
 #include "GenericActions.h"
 #include "GenericSpellActions.h"
-#include "ICCActions.h"
-#include "ICCScripts.h"
-#include "ICCTriggers.h"
 #include "Multiplier.h"
 #include "NearestNpcsValue.h"
 #include "ObjectAccessor.h"
 #include "Playerbots.h"
+#include "ICCActions.h"
+#include "ICCTriggers.h"
+#include "ICCScripts.h"
 #include "RtiValue.h"
 #include "Vehicle.h"
 #include <limits>
+#include <unordered_map>
 
 // Festergut
 bool IccFestergutGroupPositionAction::Execute(Event /*event*/)
@@ -25,6 +20,51 @@ bool IccFestergutGroupPositionAction::Execute(Event /*event*/)
         return false;
 
     bot->SetTarget(boss->GetGUID());
+
+    auto CastClassTaunt = [&](Unit* target) -> bool
+    {
+        if (!target || !target->IsAlive())
+            return false;
+
+        switch (bot->getClass())
+        {
+            case CLASS_PALADIN:
+            {
+                bot->RemoveSpellCooldown(SPELL_TAUNT_PALADIN, true);
+                if (botAI->CastSpell("hand of reckoning", target))
+                    return true;
+                break;
+            }
+            case CLASS_DEATH_KNIGHT:
+            {
+                bot->RemoveSpellCooldown(SPELL_TAUNT_DK, true);
+                if (botAI->CastSpell("dark command", target))
+                    return true;
+                break;
+            }
+            case CLASS_DRUID:
+            {
+                bot->RemoveSpellCooldown(SPELL_TAUNT_DRUID, true);
+                if (botAI->CastSpell("growl", target))
+                    return true;
+                break;
+            }
+            case CLASS_WARRIOR:
+            {
+                bot->RemoveSpellCooldown(SPELL_TAUNT_WARRIOR, true);
+                if (botAI->CastSpell("taunt", target))
+                    return true;
+                break;
+            }
+            default:
+                break;
+        }
+
+        if (botAI->CastSpell("shoot", target) || botAI->CastSpell("throw", target))
+            return true;
+
+        return false;
+    };
 
     if (botAI->IsTank(bot))
     {
@@ -48,7 +88,7 @@ bool IccFestergutGroupPositionAction::Execute(Event /*event*/)
         {
             Aura* victimAura = botAI->GetAura("gastric bloat", currentTarget, false, true);
             if (victimAura && victimAura->GetStackAmount() >= 6)
-                IccCastClassTaunt(bot, botAI,boss);
+                CastClassTaunt(boss);
         }
 
         if (bot->GetExactDist2d(ICC_FESTERGUT_TANK_POSITION) > 5.0f)
@@ -80,7 +120,16 @@ bool IccFestergutGroupPositionAction::Execute(Event /*event*/)
 
 bool IccFestergutGroupPositionAction::HasSporesInGroup()
 {
-    return IccAnyGroupMemberHasAura(bot, SPELL_GAS_SPORE);
+    GuidVector const members = AI_VALUE(GuidVector, "group members");
+
+    for (auto const& memberGuid : members)
+    {
+        Unit* unit = botAI->GetUnit(memberGuid);
+        if (unit && unit->HasAura(SPELL_GAS_SPORE))
+            return true;
+    }
+
+    return false;
 }
 
 bool IccFestergutGroupPositionAction::PositionNonTankMembers()
@@ -248,7 +297,9 @@ Position IccFestergutSporeAction::CalculateSpreadPosition()
     // runs while the spore trigger is active, so a gap >2s between calls
     // means the cycle ended - reset to the primary slot for the next cycle.
     // State is keyed by instance ID so concurrent ICC raids don't share slots.
-    IcecrownHelpers::SpreadSlotState& state = IcecrownHelpers::IccState(bot->GetMap()->GetInstanceId()).fgSlotState;
+    struct SpreadSlotState { uint32 lastCallMs = 0; int currentSlot = 1; };
+    static std::unordered_map<uint32, SpreadSlotState> s_slotState;
+    SpreadSlotState& state = s_slotState[bot->GetMap()->GetInstanceId()];
 
     uint32 now = getMSTime();
     if (state.lastCallMs == 0 || now - state.lastCallMs > cycleIdleResetMs)
@@ -258,16 +309,22 @@ Position IccFestergutSporeAction::CalculateSpreadPosition()
     Position currentSpot = (state.currentSlot == 2) ? ICC_FESTERGUT_RANGED_SPORE_2
                                                     : ICC_FESTERGUT_RANGED_SPORE;
 
-    for (Position const& goo : IcecrownHelpers::ActiveGooPositions(bot->GetMap()->GetInstanceId(), impactLifetimeMs))
+    auto it = IcecrownHelpers::malleableGooImpacts.find(bot->GetMap()->GetInstanceId());
+    if (it != IcecrownHelpers::malleableGooImpacts.end())
     {
-        float dx = goo.GetPositionX() - currentSpot.GetPositionX();
-        float dy = goo.GetPositionY() - currentSpot.GetPositionY();
-        if (dx * dx + dy * dy < gooNearSporeRadius * gooNearSporeRadius)
+        for (auto const& impact : it->second)
         {
-            state.currentSlot = (state.currentSlot == 1) ? 2 : 1;
-            currentSpot = (state.currentSlot == 2) ? ICC_FESTERGUT_RANGED_SPORE_2
-                                                   : ICC_FESTERGUT_RANGED_SPORE;
-            break;
+            if (getMSTimeDiff(impact.castTime, now) > impactLifetimeMs)
+                continue;
+            float dx = impact.position.GetPositionX() - currentSpot.GetPositionX();
+            float dy = impact.position.GetPositionY() - currentSpot.GetPositionY();
+            if (dx * dx + dy * dy < gooNearSporeRadius * gooNearSporeRadius)
+            {
+                state.currentSlot = (state.currentSlot == 1) ? 2 : 1;
+                currentSpot = (state.currentSlot == 2) ? ICC_FESTERGUT_RANGED_SPORE_2
+                                                       : ICC_FESTERGUT_RANGED_SPORE;
+                break;
+            }
         }
     }
 
@@ -310,14 +367,22 @@ IccFestergutSporeAction::SporeInfo IccFestergutSporeAction::FindSporedPlayers()
 
 bool IccFestergutSporeAction::GooNear(Position const& pos)
 {
+    constexpr uint32 impactLifetimeMs = 8000;
     constexpr float gooDangerRadius = 12.0f;
 
-    for (Position const& goo : IcecrownHelpers::ActiveGooPositions(bot->GetMap()->GetInstanceId(), 8000))
+    uint32 now = getMSTime();
+    auto it = IcecrownHelpers::malleableGooImpacts.find(bot->GetMap()->GetInstanceId());
+    if (it != IcecrownHelpers::malleableGooImpacts.end())
     {
-        float dx = pos.GetPositionX() - goo.GetPositionX();
-        float dy = pos.GetPositionY() - goo.GetPositionY();
-        if (dx * dx + dy * dy < gooDangerRadius * gooDangerRadius)
-            return true;
+        for (auto const& impact : it->second)
+        {
+            if (getMSTimeDiff(impact.castTime, now) > impactLifetimeMs)
+                continue;
+            float dx = pos.GetPositionX() - impact.position.GetPositionX();
+            float dy = pos.GetPositionY() - impact.position.GetPositionY();
+            if (dx * dx + dy * dy < gooDangerRadius * gooDangerRadius)
+                return true;
+        }
     }
     return false;
 }
@@ -401,21 +466,32 @@ bool IccFestergutAvoidMalleableGooAction::Execute(Event /*event*/)
     // Any bot within 12yd of an active impact must flee; danger persists 8s.
     // Once a bot dodges, we return true (blocking group-position) until the
     // impact expires so the bot doesn't immediately re-enter the danger zone.
+    constexpr uint32 impactLifetimeMs = 8000;
     constexpr float gooDangerRadius = 12.0f;
 
+    uint32 now = getMSTime();
     float botX = bot->GetPositionX();
     float botY = bot->GetPositionY();
     float botZ = bot->GetPositionZ();
     ObjectGuid botGuid = bot->GetGUID();
 
-    std::vector<Position> goos = IcecrownHelpers::ActiveGooPositions(bot->GetMap()->GetInstanceId(), 8000);
+    std::vector<Position> goos;
+    goos.reserve(4);
     bool botInDanger = false;
-    for (Position const& goo : goos)
+    auto impactIt = IcecrownHelpers::malleableGooImpacts.find(bot->GetMap()->GetInstanceId());
+    if (impactIt != IcecrownHelpers::malleableGooImpacts.end())
     {
-        float dx = botX - goo.GetPositionX();
-        float dy = botY - goo.GetPositionY();
-        if (dx * dx + dy * dy < gooDangerRadius * gooDangerRadius)
-            botInDanger = true;
+        for (auto const& impact : impactIt->second)
+        {
+            if (getMSTimeDiff(impact.castTime, now) > impactLifetimeMs)
+                continue;
+            goos.push_back(impact.position);
+
+            float dx = botX - impact.position.GetPositionX();
+            float dy = botY - impact.position.GetPositionY();
+            if (dx * dx + dy * dy < gooDangerRadius * gooDangerRadius)
+                botInDanger = true;
+        }
     }
 
     if (!botInDanger)
@@ -430,7 +506,19 @@ bool IccFestergutAvoidMalleableGooAction::Execute(Event /*event*/)
     // tank spot, so we ignore melee allies (the tank/melee pile would reject
     // every nearby candidate). When no spore is active, melee also spread.
     constexpr float botSpacing = 10.0f;
-    bool const sporeActive = IccAnyGroupMemberHasAura(bot, SPELL_GAS_SPORE);
+    bool sporeActive = false;
+    if (Group* group = bot->GetGroup())
+    {
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (member && member->HasAura(SPELL_GAS_SPORE))
+            {
+                sporeActive = true;
+                break;
+            }
+        }
+    }
 
     std::vector<Position> alliesToSpace;
     if (Group* group = bot->GetGroup())

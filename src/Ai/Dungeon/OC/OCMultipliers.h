@@ -1,9 +1,3 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
 #ifndef PLAYERBOTS_OCMULTIPLIERS_H
 #define PLAYERBOTS_OCMULTIPLIERS_H
 
@@ -24,7 +18,7 @@ class MountingDrakeMultiplier : public Multiplier
         MountingDrakeMultiplier(PlayerbotAI* ai) : Multiplier(ai, "mounting drake") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 class OccFlyingMultiplier : public Multiplier
@@ -33,7 +27,7 @@ class OccFlyingMultiplier : public Multiplier
         OccFlyingMultiplier(PlayerbotAI* ai) : Multiplier(ai, "occ flying drake") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 class UromMultiplier : public Multiplier
@@ -42,7 +36,7 @@ class UromMultiplier : public Multiplier
         UromMultiplier(PlayerbotAI* ai) : Multiplier(ai, "mage-lord urom") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
     protected:
         uint8 GetPhaseByCurrentPosition(Unit* boss);
 };
@@ -53,7 +47,7 @@ class EregosMultiplier : public Multiplier
         EregosMultiplier(PlayerbotAI* ai) : Multiplier(ai, "ley-guardian eregos") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 #endif

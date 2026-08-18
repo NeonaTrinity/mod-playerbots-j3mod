@@ -1,14 +1,9 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
-#include "ObjectAccessor.h"
+#include "ScriptMgr.h"
 #include "Opcodes.h"
 #include "Player.h"
+#include "ObjectAccessor.h"
+
 #include "Playerbots.h"
-#include "ScriptMgr.h"
 
 namespace
 {
@@ -22,7 +17,7 @@ namespace
             return nullptr;
 
         PlayerbotAI* ai = GET_PLAYERBOT_AI(p);
-        if (!ai || IsSelfBot(p))
+        if (!ai || ai->IsRealPlayer())
             return nullptr;
 
         return p;

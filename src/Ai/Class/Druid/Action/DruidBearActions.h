@@ -1,7 +1,6 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #ifndef PLAYERBOTS_DRUIDBEARACTIONS_H
@@ -42,6 +41,12 @@ class CastBashAction : public CastMeleeSpellAction
 {
 public:
     CastBashAction(PlayerbotAI* botAI) : CastMeleeSpellAction(botAI, "bash") {}
+};
+
+class CastSwipeAction : public CastMeleeSpellAction
+{
+public:
+    CastSwipeAction(PlayerbotAI* botAI) : CastMeleeSpellAction(botAI, "swipe") {}
 };
 
 class CastDemoralizingRoarAction : public CastMeleeDebuffSpellAction

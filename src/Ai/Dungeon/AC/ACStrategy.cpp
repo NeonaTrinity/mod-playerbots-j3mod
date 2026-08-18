@@ -1,12 +1,6 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
+#include "ACTriggers.h"
 #include "ACStrategy.h"
 #include "ACMultipliers.h"
-#include "ACTriggers.h"
 
 void TbcDungeonAuchenaiCryptsStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {

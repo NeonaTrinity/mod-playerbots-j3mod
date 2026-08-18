@@ -1,30 +1,31 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "TravelMgr.h"
+
+#include <iomanip>
+#include <numeric>
+
 #include "AreaDefines.h"
-#include "CellImpl.h"
-#include "ChatHelper.h"
-#include "Corpse.h"
 #include "Creature.h"
 #include "Log.h"
-#include "Map.h"
+#include "ObjectAccessor.h"
+#include "TravelNode.h"
+#include "Talentspec.h"
+#include "ChatHelper.h"
 #include "MapCollisionData.h"
 #include "MapMgr.h"
-#include "ObjectAccessor.h"
 #include "PathGenerator.h"
 #include "Playerbots.h"
 #include "RaceMgr.h"
-#include "Talentspec.h"
 #include "TransportMgr.h"
-#include "TravelNode.h"
 #include "VMapFactory.h"
 #include "VMapMgr2.h"
-#include <iomanip>
-#include <numeric>
+#include "Map.h"
+#include "Corpse.h"
+#include "CellImpl.h"
 
 // Navigation data
 
@@ -539,7 +540,7 @@ std::string const WorldPosition::getAreaName(bool fullName, bool zoneName)
     return areaName;
 }
 
-std::set<Transport*> WorldPosition::getTransports(uint32 /*entry*/)
+std::set<Transport*> WorldPosition::getTransports(uint32 entry)
 {
     /*
     if (!entry)
@@ -1066,7 +1067,7 @@ GuidPosition::GuidPosition(CreatureData const& creData)
 }
 
 GuidPosition::GuidPosition(GameObjectData const& goData)
-    : ObjectGuid(HighGuid::GameObject, goData.id, goData.spawnId),
+    : ObjectGuid(HighGuid::GameObject, goData.id),
       WorldPosition(goData.mapid, goData.posX, goData.posY, goData.posZ, goData.orientation)
 {
     loadedFromDB = true;
@@ -1257,7 +1258,7 @@ bool QuestObjectiveTravelDestination::isActive(Player* bot)
         GuidVector targets = AI_VALUE(GuidVector, "possible targets");
 
         for (auto& target : targets)
-            if (target.GetEntry() == uint32(getEntry()) && target.IsCreature() && botAI->GetCreature(target) &&
+            if (target.GetEntry() == getEntry() && target.IsCreature() && botAI->GetCreature(target) &&
                 botAI->GetCreature(target)->IsAlive())
                 return true;
 
@@ -1309,7 +1310,7 @@ bool RpgTravelDestination::isActive(Player* bot)
 
     for (ObjectGuid const guid : ignoreList)
     {
-        if (guid.GetEntry() == uint32(getEntry()))
+        if (guid.GetEntry() == getEntry())
             return false;
 
     }
@@ -1454,7 +1455,7 @@ bool BossTravelDestination::isActive(Player* bot)
         GuidVector targets = AI_VALUE(GuidVector, "possible targets");
 
         for (auto& target : targets)
-            if (target.GetEntry() == uint32(getEntry()) && target.IsCreature() && botAI->GetCreature(target) &&
+            if (target.GetEntry() == getEntry() && target.IsCreature() && botAI->GetCreature(target) &&
                 botAI->GetCreature(target)->IsAlive())
                 return true;
 
@@ -3835,7 +3836,7 @@ uint32 TravelMgr::getDialogStatus(Player* pPlayer, int32 questgiver, Quest const
 
 // Selects a random WorldPosition from a list. Use a distance weighted distribution.
 std::vector<WorldPosition*> TravelMgr::getNextPoint(WorldPosition* center, std::vector<WorldPosition*> points,
-                                                    uint32 /*amount*/)
+                                                    uint32 amount)
 {
     std::vector<WorldPosition*> retVec;
 
@@ -4745,7 +4746,7 @@ void TravelMgr::PrepareDestinationCache()
                 {
                     LevelBracket bracket = zone2LevelBracket[areaId];
                     WorldPosition loc(mapId, x + cos(orient) * 5.0f, y + sin(orient) * 5.0f, z + 0.5f, orient + M_PI);
-                    for (uint32 i = bracket.low; i <= bracket.high; i++)
+                    for (int i = bracket.low; i <= bracket.high; i++)
                     {
                         if (forHorde)
                             hordeHubsPerLevelCache[i].push_back(loc);
@@ -4761,7 +4762,7 @@ void TravelMgr::PrepareDestinationCache()
 
                 LevelBracket bracket = zone2LevelBracket[areaId];
                 WorldPosition loc(mapId, x + cos(orient) * 5.0f, y + sin(orient) * 5.0f, z + 0.5f, orient + M_PI);
-                for (uint32 i = bracket.low; i <= bracket.high; i++)
+                for (int i = bracket.low; i <= bracket.high; i++)
                 {
                     if (forHorde)
                         hordeHubsPerLevelCache[i].push_back(loc);
@@ -4786,7 +4787,7 @@ void TravelMgr::PrepareDestinationCache()
             bLoc.loc = WorldLocation(mapId, x + cos(orient) * 6.0f, y + sin(orient) * 6.0f, z + 2.0f, orient + M_PI);
             bLoc.entry = templateEntry;
             uint32 level = (creatureTemplate->minlevel + creatureTemplate->maxlevel + 1) / 2;
-            for (uint32 l = 1; l <= maxLevel; l++)
+            for (int32 l = 1; l <= maxLevel; l++)
             {
                 // Bots 1-60 go to base game bankers (all have minlevel 30 or 45)
                 if (l <=60 && level > 45)
@@ -4817,13 +4818,13 @@ void TravelMgr::PrepareDestinationCache()
             for (int32 l = (int32)level - (int32)sPlayerbotAIConfig.randomBotTeleLowerLevel;
                  l <= (int32)level + (int32)sPlayerbotAIConfig.randomBotTeleHigherLevel; l++)
             {
-                if (l < 1 || l > int32(maxLevel))
+                if (l < 1 || l > maxLevel)
                     continue;
 
-                locsPerLevelCache[(uint8)l].push_back(WorldLocation(std::get<0>(gridTuple),
-                    static_cast<float>(std::get<1>(gridTuple)) * 50.0f,
-                    static_cast<float>(std::get<2>(gridTuple)) * 50.0f,
-                    static_cast<float>(std::get<3>(gridTuple)) * 50.0f));
+                    locsPerLevelCache[(uint8)l].push_back(WorldLocation(std::get<0>(gridTuple),
+                        static_cast<float>(std::get<1>(gridTuple)) * 50.0f,
+                        static_cast<float>(std::get<2>(gridTuple)) * 50.0f,
+                        static_cast<float>(std::get<3>(gridTuple)) * 50.0f));
             }
         }
     }

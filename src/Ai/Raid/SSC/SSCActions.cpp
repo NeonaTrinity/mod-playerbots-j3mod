@@ -1,10 +1,10 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "SSCActions.h"
+#include "SSCHelpers.h"
 #include "AiFactory.h"
 #include "Corpse.h"
 #include "LootAction.h"
@@ -13,7 +13,6 @@
 #include "Playerbots.h"
 #include "RaidBossHelpers.h"
 #include "RtiTargetValue.h"
-#include "SSCHelpers.h"
 
 using namespace SerpentShrineCavernHelpers;
 
@@ -132,8 +131,10 @@ bool UnderbogColossusEscapeToxicPoolAction::Execute(Event /*event*/)
 
 bool GreyheartTidecallerMarkWaterElementalTotemAction::Execute(Event /*event*/)
 {
-    Unit* totem = GetFirstAliveUnitByEntry(botAI, NPC_WATER_ELEMENTAL_TOTEM);
-    return totem && MarkTargetWithSkull(bot, totem);
+    if (Unit* totem = GetFirstAliveUnitByEntry(botAI, NPC_WATER_ELEMENTAL_TOTEM))
+        MarkTargetWithSkull(bot, totem);
+
+    return false;
 }
 
 // Hydross the Unstable <Duke of Currents>
@@ -149,9 +150,7 @@ bool HydrossTheUnstablePositionFrostTankAction::Execute(Event /*event*/)
 
     if (!hydross->HasAura(SPELL_CORRUPTION) && !HasMarkOfHydrossAt100Percent(bot))
     {
-        if (MarkTargetWithSquare(bot, hydross))
-            return true;
-
+        MarkTargetWithSquare(bot, hydross);
         SetRtiTarget(botAI, "square", hydross);
 
         if (AI_VALUE(Unit*, "current target") != hydross)
@@ -231,9 +230,7 @@ bool HydrossTheUnstablePositionNatureTankAction::Execute(Event /*event*/)
 
     if (hydross->HasAura(SPELL_CORRUPTION) && !HasMarkOfCorruptionAt100Percent(bot))
     {
-        if (MarkTargetWithTriangle(bot, hydross))
-            return true;
-
+        MarkTargetWithTriangle(bot, hydross);
         SetRtiTarget(botAI, "triangle", hydross);
 
         if (AI_VALUE(Unit*, "current target") != hydross)
@@ -306,8 +303,8 @@ bool HydrossTheUnstablePrioritizeElementalAddsAction::Execute(Event /*event*/)
 {
     if (Unit* waterElemental = GetFirstAliveUnitByEntry(botAI, NPC_PURE_SPAWN_OF_HYDROSS))
     {
-        if (MarkTargetWithSkull(bot, waterElemental))
-            return true;
+        if (IsMechanicTrackerBot(botAI, bot, SSC_MAP_ID, nullptr))
+            MarkTargetWithSkull(bot, waterElemental);
 
         SetRtiTarget(botAI, "skull", waterElemental);
 
@@ -316,8 +313,8 @@ bool HydrossTheUnstablePrioritizeElementalAddsAction::Execute(Event /*event*/)
     }
     else if (Unit* natureElemental = GetFirstAliveUnitByEntry(botAI, NPC_TAINTED_SPAWN_OF_HYDROSS))
     {
-        if (MarkTargetWithSkull(bot, natureElemental))
-            return true;
+        if (IsMechanicTrackerBot(botAI, bot, SSC_MAP_ID, nullptr))
+            MarkTargetWithSkull(bot, natureElemental);
 
         SetRtiTarget(botAI, "skull", natureElemental);
 
@@ -336,7 +333,7 @@ bool HydrossTheUnstableFrostPhaseSpreadOutAction::Execute(Event /*event*/)
 
     constexpr float safeDistance = 6.0f;
     constexpr uint32 minInterval = 1000;
-    if (Player* nearestPlayer = GetNearestPlayerInRadius(bot, safeDistance))
+    if (Unit* nearestPlayer = GetNearestPlayerInRadius(bot, safeDistance))
         return FleePosition(nearestPlayer->GetPosition(), safeDistance, minInterval);
 
     return false;
@@ -639,9 +636,7 @@ bool TheLurkerBelowTanksPickUpAddsAction::Execute(Event /*event*/)
         Unit* guardian = guardians[i];
         if (bot == tank)
         {
-            if (MarkTargetWithIcon(bot, guardian, rtiIndices[i]))
-                return true;
-
+            MarkTargetWithIcon(bot, guardian, rtiIndices[i]);
             SetRtiTarget(botAI, rtiNames[i], guardian);
 
             if (AI_VALUE(Unit*, "current target") != guardian)
@@ -685,9 +680,8 @@ bool TheLurkerBelowManageSpoutTimerAction::Execute(Event /*event*/)
 
 bool LeotherasTheBlindTargetSpellbindersAction::Execute(Event /*event*/)
 {
-    Unit* spellbinder = GetFirstAliveUnitByEntry(botAI, NPC_GREYHEART_SPELLBINDER);
-    if (spellbinder && MarkTargetWithSkull(bot, spellbinder))
-        return true;
+    if (Unit* spellbinder = GetFirstAliveUnitByEntry(botAI, NPC_GREYHEART_SPELLBINDER))
+        MarkTargetWithSkull(bot, spellbinder);
 
     return false;
 }
@@ -717,9 +711,7 @@ bool LeotherasTheBlindDemonFormTankAttackBossAction::Execute(Event /*event*/)
 
     if (Unit* leotherasDemon = GetActiveLeotherasDemon(bot))
     {
-        if (MarkTargetWithSquare(bot, leotherasDemon))
-            return true;
-
+        MarkTargetWithSquare(bot, leotherasDemon);
         SetRtiTarget(botAI, "square", leotherasDemon);
 
         if (botAI->CanCastSpell("searing pain", leotherasDemon))
@@ -983,9 +975,7 @@ bool LeotherasTheBlindFinalPhaseAssignDpsPriorityAction::Execute(Event /*event*/
     if (!leotherasHuman)
         return false;
 
-    if (MarkTargetWithStar(bot, leotherasHuman))
-        return true;
-
+    MarkTargetWithStar(bot, leotherasHuman);
     SetRtiTarget(botAI, "star", leotherasHuman);
 
     if (AI_VALUE(Unit*, "current target") != leotherasHuman)
@@ -1099,9 +1089,7 @@ bool FathomLordKarathressMainTankPositionBossAction::Execute(Event /*event*/)
     if (!karathress)
         return false;
 
-    if (MarkTargetWithTriangle(bot, karathress))
-        return true;
-
+    MarkTargetWithTriangle(bot, karathress);
     SetRtiTarget(botAI, "triangle", karathress);
 
     if (AI_VALUE(Unit*, "current target") != karathress)
@@ -1137,9 +1125,7 @@ bool FathomLordKarathressFirstAssistTankPositionCaribdisAction::Execute(Event /*
     if (!caribdis)
         return false;
 
-    if (MarkTargetWithDiamond(bot, caribdis))
-        return true;
-
+    MarkTargetWithDiamond(bot, caribdis);
     SetRtiTarget(botAI, "diamond", caribdis);
 
     if (AI_VALUE(Unit*, "current target") != caribdis)
@@ -1174,9 +1160,7 @@ bool FathomLordKarathressSecondAssistTankPositionSharkkisAction::Execute(Event /
     if (!sharkkis)
         return false;
 
-    if (MarkTargetWithStar(bot, sharkkis))
-        return true;
-
+    MarkTargetWithStar(bot, sharkkis);
     SetRtiTarget(botAI, "star", sharkkis);
 
     if (AI_VALUE(Unit*, "current target") != sharkkis)
@@ -1211,9 +1195,7 @@ bool FathomLordKarathressThirdAssistTankPositionTidalvessAction::Execute(Event /
     if (!tidalvess)
         return false;
 
-    if (MarkTargetWithCircle(bot, tidalvess))
-        return true;
-
+    MarkTargetWithCircle(bot, tidalvess);
     SetRtiTarget(botAI, "circle", tidalvess);
 
     if (AI_VALUE(Unit*, "current target") != tidalvess)
@@ -1337,9 +1319,7 @@ bool FathomLordKarathressAssignDpsPriorityAction::Execute(Event /*event*/)
     Unit* totem = GetFirstAliveUnitByEntry(botAI, NPC_SPITFIRE_TOTEM);
     if (totem && botAI->IsMelee(bot) && botAI->IsDps(bot))
     {
-        if (MarkTargetWithSkull(bot, totem))
-            return true;
-
+        MarkTargetWithSkull(bot, totem);
         SetRtiTarget(botAI, "skull", totem);
 
         if (AI_VALUE(Unit*, "current target") != totem)
@@ -1360,9 +1340,7 @@ bool FathomLordKarathressAssignDpsPriorityAction::Execute(Event /*event*/)
     Unit* tidalvess = AI_VALUE2(Unit*, "find target", "fathom-guard tidalvess");
     if (tidalvess)
     {
-        if (MarkTargetWithCircle(bot, tidalvess))
-            return true;
-
+        MarkTargetWithCircle(bot, tidalvess);
         SetRtiTarget(botAI, "circle", tidalvess);
 
         if (AI_VALUE(Unit*, "current target") != tidalvess)
@@ -1375,9 +1353,7 @@ bool FathomLordKarathressAssignDpsPriorityAction::Execute(Event /*event*/)
     Unit* caribdis = AI_VALUE2(Unit*, "find target", "fathom-guard caribdis");
     if (botAI->IsRangedDps(bot) && caribdis)
     {
-        if (MarkTargetWithDiamond(bot, caribdis))
-            return true;
-
+        MarkTargetWithDiamond(bot, caribdis);
         SetRtiTarget(botAI, "diamond", caribdis);
 
         const Position& position = CARIBDIS_RANGED_DPS_POSITION;
@@ -1397,9 +1373,7 @@ bool FathomLordKarathressAssignDpsPriorityAction::Execute(Event /*event*/)
     Unit* sharkkis = AI_VALUE2(Unit*, "find target", "fathom-guard sharkkis");
     if (sharkkis)
     {
-        if (MarkTargetWithStar(bot, sharkkis))
-            return true;
-
+        MarkTargetWithStar(bot, sharkkis);
         SetRtiTarget(botAI, "star", sharkkis);
 
         if (AI_VALUE(Unit*, "current target") != sharkkis)
@@ -1412,9 +1386,7 @@ bool FathomLordKarathressAssignDpsPriorityAction::Execute(Event /*event*/)
     Unit* fathomSporebat = AI_VALUE2(Unit*, "find target", "fathom sporebat");
     if (fathomSporebat && botAI->IsMelee(bot))
     {
-        if (MarkTargetWithCross(bot, fathomSporebat))
-            return true;
-
+        MarkTargetWithCross(bot, fathomSporebat);
         SetRtiTarget(botAI, "cross", fathomSporebat);
 
         if (AI_VALUE(Unit*, "current target") != fathomSporebat)
@@ -1426,9 +1398,7 @@ bool FathomLordKarathressAssignDpsPriorityAction::Execute(Event /*event*/)
     Unit* fathomLurker = AI_VALUE2(Unit*, "find target", "fathom lurker");
     if (fathomLurker && botAI->IsMelee(bot))
     {
-        if (MarkTargetWithSquare(bot, fathomLurker))
-            return true;
-
+        MarkTargetWithSquare(bot, fathomLurker);
         SetRtiTarget(botAI, "square", fathomLurker);
 
         if (AI_VALUE(Unit*, "current target") != fathomLurker)
@@ -1441,9 +1411,7 @@ bool FathomLordKarathressAssignDpsPriorityAction::Execute(Event /*event*/)
     Unit* karathress = AI_VALUE2(Unit*, "find target", "fathom-lord karathress");
     if (karathress)
     {
-        if (MarkTargetWithTriangle(bot, karathress))
-            return true;
-
+        MarkTargetWithTriangle(bot, karathress);
         SetRtiTarget(botAI, "triangle", karathress);
 
         if (AI_VALUE(Unit*, "current target") != karathress)
@@ -1914,9 +1882,7 @@ bool LadyVashjAssignPhase2AndPhase3DpsPriorityAction::Execute(Event /*event*/)
         {
             if (botAI->IsMainTank(bot))
             {
-                if (MarkTargetWithDiamond(bot, vashj))
-                    return true;
-
+                MarkTargetWithDiamond(bot, vashj);
                 SetRtiTarget(botAI, "diamond", vashj);
                 targets = { vashj };
             }
@@ -2078,9 +2044,7 @@ bool LadyVashjTeleportToTaintedElementalAction::Execute(Event /*event*/)
 
     if (AI_VALUE(Unit*, "current target") != tainted)
     {
-        if (MarkTargetWithStar(bot, tainted))
-            return true;
-
+        MarkTargetWithStar(bot, tainted);
         SetRtiTarget(botAI, "star", tainted);
         return Attack(tainted);
     }
@@ -2375,7 +2339,7 @@ bool LadyVashjPassTheTaintedCoreAction::LineUpSecondCorePasser(
 }
 
 bool LadyVashjPassTheTaintedCoreAction::LineUpThirdCorePasser(
-    Player*, Player* firstCorePasser,
+    Player* designatedLooter, Player* firstCorePasser,
     Player* secondCorePasser, Unit* closestTrigger)
 {
     bool needThirdPasser =
@@ -2440,7 +2404,7 @@ bool LadyVashjPassTheTaintedCoreAction::LineUpThirdCorePasser(
 }
 
 bool LadyVashjPassTheTaintedCoreAction::LineUpFourthCorePasser(
-    Player*, Player* secondCorePasser,
+    Player* firstCorePasser, Player* secondCorePasser,
     Player* thirdCorePasser, Unit* closestTrigger)
 {
     bool needFourthPasser =

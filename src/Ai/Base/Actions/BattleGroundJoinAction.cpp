@@ -1,10 +1,10 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "BattleGroundJoinAction.h"
+
 #include "ArenaTeam.h"
 #include "ArenaTeamMgr.h"
 #include "BattlegroundMgr.h"
@@ -90,7 +90,7 @@ bool BGJoinAction::gatherArenaTeam(ArenaType type)
             if (!memberBotAI)
                 continue;
 
-            if (member->GetGroup() && memberBotAI->HasGameClientMaster())
+            if (member->GetGroup() && memberBotAI->HasRealPlayerMaster())
                 continue;
 
             if (!sPlayerbotAIConfig.IsInRandomAccountList(member->GetSession()->GetAccountId()))
@@ -331,7 +331,7 @@ bool BGJoinAction::isUseful()
         return false;
 
     // do not try if with player master
-    if (IsRealPlayer(GET_PLAYERBOT_AI(bot)->GetMaster()))
+    if (GET_PLAYERBOT_AI(bot)->HasActivePlayerMaster())
         return false;
 
     // do not try if in group, if in group only leader can queue

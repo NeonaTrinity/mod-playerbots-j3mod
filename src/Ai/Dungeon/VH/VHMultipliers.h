@@ -1,9 +1,3 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
 #ifndef PLAYERBOTS_VHMULTIPLIERS_H
 #define PLAYERBOTS_VHMULTIPLIERS_H
 
@@ -15,7 +9,7 @@ class ErekemMultiplier : public Multiplier
         ErekemMultiplier(PlayerbotAI* ai) : Multiplier(ai, "erekem") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 class IchoronMultiplier : public Multiplier
@@ -24,7 +18,7 @@ class IchoronMultiplier : public Multiplier
         IchoronMultiplier(PlayerbotAI* ai) : Multiplier(ai, "ichoron") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 class ZuramatMultiplier : public Multiplier
@@ -33,7 +27,7 @@ class ZuramatMultiplier : public Multiplier
         ZuramatMultiplier(PlayerbotAI* ai) : Multiplier(ai, "zuramat the obliterator") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 #endif

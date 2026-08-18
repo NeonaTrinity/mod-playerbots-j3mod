@@ -4,18 +4,20 @@
  */
 
 #include "FollowActions.h"
+
+#include <algorithm>
+#include <cmath>
+#include <array>
+
 #include "Event.h"
 #include "Formations.h"
 #include "LastMovementValue.h"
-#include "Map.h"
 #include "MotionMaster.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
 #include "ServerFacade.h"
 #include "Transport.h"
-#include <algorithm>
-#include <array>
-#include <cmath>
+#include "Map.h"
 
 namespace
 {
@@ -216,7 +218,7 @@ bool FollowAction::Execute(Event /*event*/)
     else
     {
         WorldLocation loc = formation->GetLocation();
-        if (Formation::IsNullLocation(loc) || loc.GetMapId() == MAPID_INVALID)
+        if (Formation::IsNullLocation(loc) || loc.GetMapId() == -1)
             return false;
 
         MovementPriority priority = botAI->GetState() == BOT_STATE_COMBAT ? MovementPriority::MOVEMENT_COMBAT : MovementPriority::MOVEMENT_NORMAL;

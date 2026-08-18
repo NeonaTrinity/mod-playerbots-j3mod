@@ -6,6 +6,8 @@
 #ifndef PLAYERBOTS_PLAYERBOTAI_H
 #define PLAYERBOTS_PLAYERBOTAI_H
 
+#include <stack>
+
 #include "Chat.h"
 #include "ChatFilter.h"
 #include "ChatHelper.h"
@@ -21,13 +23,11 @@
 #include "SpellAuras.h"
 #include "Util.h"
 #include "WorldPacket.h"
-#include <stack>
 
 class AiObjectContext;
 class Creature;
 class Engine;
 class ExternalEventHelper;
-class Group;
 class Gameobject;
 class Item;
 class ObjectGuid;
@@ -76,8 +76,6 @@ enum BotState
     BOT_STATE_MAX
 };
 
-bool IsRealPlayer(Player* player);
-bool IsSelfBot(Player* player);
 bool IsAlliance(uint8 race);
 
 class PlayerbotChatHandler : protected ChatHandler
@@ -410,7 +408,6 @@ public:
     std::vector<std::string> GetStrategies(BotState type);
     Strategy* GetStrategy(std::string const name, BotState type);
     void ApplyInstanceStrategies(uint32 mapId, bool tellMaster = false);
-    bool HasTargetExclusions() const;
     void EvaluateHealerDpsStrategy();
     bool ContainsStrategy(StrategyType type);
     bool HasStrategy(std::string const name, BotState type);
@@ -427,10 +424,8 @@ public:
     static bool IsCaster(Player* player, bool bySpec = false);
     static bool IsRangedDps(Player* player, bool bySpec = false);
     static bool IsCombo(Player* player);
-    static ObjectGuid GetMainTankGuid(Group* group);
-    static bool IsMainTank(Player* player);
-    static bool IsExplicitMainTank(Player* player);
     static bool IsBotMainTank(Player* player);
+    static bool IsMainTank(Player* player, bool ignoreMemberFlag = false);
     static uint32 GetGroupTankNum(Player* player);
     static bool IsAssistTank(Player* player);
     static bool IsAssistTankOfIndex(Player* player, uint8 index, bool ignoreDeadPlayers = false);
@@ -538,10 +533,15 @@ public:
     Player* GetMaster() { return master; }
     Player* FindNewMaster();
 
+    // Checks if the bot is really a player. Players always have themselves as master.
+    bool IsRealPlayer() { return master ? (master == bot) : false; }
+    // Bot has a master that is a player.
+    bool HasRealPlayerMaster();
+    // Bot has a master that is activly playing.
+    bool HasActivePlayerMaster();
     // Get the group leader or the master of the bot.
-    // Checks if the bot is summoned an altbot of a player
-    bool IsAltBot();
-    bool HasGameClientMaster();
+    // Checks if the bot is summoned as alt of a player
+    bool IsAlt();
     Player* GetGroupLeader();
     uint32 GetFixedBotNumber(uint32 maxNum = 100);
     GrouperType GetGrouperType();
@@ -550,7 +550,6 @@ public:
     bool HasPlayerNearby(float range = sPlayerbotAIConfig.reactDistance);
     bool AllowActive(ActivityType activityType);
     bool AllowActivity(ActivityType activityType = ALL_ACTIVITY, bool checkNow = false);
-    bool IsActivityAllowedCached() const { return allowActive[ALL_ACTIVITY]; }
     uint32 AutoScaleActivity(uint32 mod);
 
     // Check if player is safe to use.
@@ -598,7 +597,7 @@ public:
     std::set<uint32> GetCurrentIncompleteQuestIds();
     void PetFollow();
     static float GetItemScoreMultiplier(ItemQualities quality);
-    static bool IsHealingSpell(uint32 spellFamilyName, flag96 spellFamilyFlags);
+    static bool IsHealingSpell(uint32 spellFamilyName, flag96 spelFalimyFlags);
     static SpellFamilyNames Class2SpellFamilyName(uint8 cls);
     NewRpgInfo rpgInfo;
     NewRpgStatistic rpgStatistic;

@@ -1,26 +1,17 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "DpsTargetValue.h"
+
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
-#include "Strategy.h"
 
-class DpsFindTargetStrategy : public FindTargetStrategy
+class FindMaxThreatGapTargetStrategy : public FindTargetStrategy
 {
 public:
-    DpsFindTargetStrategy(PlayerbotAI* botAI) : FindTargetStrategy(botAI) {}
-
-    TargetValueExclusionType GetExclusionType() override { return TargetValueExclusionType::Dps; }
-};
-
-class FindMaxThreatGapTargetStrategy : public DpsFindTargetStrategy
-{
-public:
-    FindMaxThreatGapTargetStrategy(PlayerbotAI* botAI) : DpsFindTargetStrategy(botAI), minThreat(0) {}
+    FindMaxThreatGapTargetStrategy(PlayerbotAI* botAI) : FindTargetStrategy(botAI), minThreat(0) {}
 
     void CheckAttacker(Unit* attacker, ThreatManager* threatMgr) override
     {
@@ -50,11 +41,11 @@ protected:
 };
 
 // caster
-class CasterFindTargetSmartStrategy : public DpsFindTargetStrategy
+class CasterFindTargetSmartStrategy : public FindTargetStrategy
 {
 public:
     CasterFindTargetSmartStrategy(PlayerbotAI* botAI, float dps)
-        : DpsFindTargetStrategy(botAI), dps_(dps), targetExpectedLifeTime(1000000)
+        : FindTargetStrategy(botAI), dps_(dps), targetExpectedLifeTime(1000000)
     {
         result = nullptr;
     }
@@ -133,11 +124,11 @@ protected:
 };
 
 // General
-class GeneralFindTargetSmartStrategy : public DpsFindTargetStrategy
+class GeneralFindTargetSmartStrategy : public FindTargetStrategy
 {
 public:
     GeneralFindTargetSmartStrategy(PlayerbotAI* botAI, float dps)
-        : DpsFindTargetStrategy(botAI), dps_(dps), targetExpectedLifeTime(1000000)
+        : FindTargetStrategy(botAI), dps_(dps), targetExpectedLifeTime(1000000)
     {
     }
 
@@ -203,11 +194,11 @@ protected:
 };
 
 // combo
-class ComboFindTargetSmartStrategy : public DpsFindTargetStrategy
+class ComboFindTargetSmartStrategy : public FindTargetStrategy
 {
 public:
     ComboFindTargetSmartStrategy(PlayerbotAI* botAI, float dps)
-        : DpsFindTargetStrategy(botAI), dps_(dps), targetExpectedLifeTime(1000000)
+        : FindTargetStrategy(botAI), dps_(dps), targetExpectedLifeTime(1000000)
     {
     }
 
@@ -305,10 +296,10 @@ Unit* DpsTargetValue::Calculate()
     return TargetValue::FindTarget(&strategy);
 }
 
-class FindMaxHpTargetStrategy : public DpsFindTargetStrategy
+class FindMaxHpTargetStrategy : public FindTargetStrategy
 {
 public:
-    FindMaxHpTargetStrategy(PlayerbotAI* botAI) : DpsFindTargetStrategy(botAI), maxHealth(0) {}
+    FindMaxHpTargetStrategy(PlayerbotAI* botAI) : FindTargetStrategy(botAI), maxHealth(0) {}
 
     void CheckAttacker(Unit* attacker, ThreatManager*) override
     {

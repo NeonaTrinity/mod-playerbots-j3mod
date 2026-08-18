@@ -1,9 +1,3 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
 #ifndef PLAYERBOTS_AKMULTIPLIERS_H
 #define PLAYERBOTS_AKMULTIPLIERS_H
 
@@ -15,7 +9,7 @@ class ElderNadoxMultiplier : public Multiplier
         ElderNadoxMultiplier(PlayerbotAI* ai) : Multiplier(ai, "elder nadox") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 class JedogaShadowseekerMultiplier : public Multiplier
@@ -24,7 +18,7 @@ class JedogaShadowseekerMultiplier : public Multiplier
         JedogaShadowseekerMultiplier(PlayerbotAI* ai) : Multiplier(ai, "jedoga shadowseeker") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 class ForgottenOneMultiplier : public Multiplier
@@ -33,7 +27,7 @@ class ForgottenOneMultiplier : public Multiplier
         ForgottenOneMultiplier(PlayerbotAI* ai) : Multiplier(ai, "forgotten one") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 #endif

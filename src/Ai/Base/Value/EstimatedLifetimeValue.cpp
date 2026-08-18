@@ -1,10 +1,5 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
 #include "EstimatedLifetimeValue.h"
+
 #include "AiFactory.h"
 #include "PlayerbotAI.h"
 #include "PlayerbotAIConfig.h"
@@ -41,8 +36,8 @@ float EstimatedGroupDpsValue::Calculate()
             if (member == bot)  // calculated
                 continue;
 
-            // Ignore real players and selfbots as they may not help with damage.
-            if (!GET_PLAYERBOT_AI(member) || IsSelfBot(member))
+            // ignore real player as they may not help with damage
+            if (!GET_PLAYERBOT_AI(member) || GET_PLAYERBOT_AI(member)->IsRealPlayer())
                 continue;
 
             if (!member || !member->IsInWorld() || !member->IsAlive())

@@ -1,10 +1,10 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "LeaveGroupAction.h"
+
 #include "Event.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotTextMgr.h"
@@ -114,7 +114,7 @@ bool LeaveFarAwayAction::isUseful()
 
     Player* groupLeader = botAI->GetGroupLeader();
     Player* trueMaster = botAI->GetMaster();
-    if (!groupLeader || (bot == groupLeader && !IsSelfBot(bot)))
+    if (!groupLeader || (bot == groupLeader && !botAI->IsRealPlayer()))
         return false;
 
     PlayerbotAI* groupLeaderBotAI = nullptr;
@@ -126,8 +126,8 @@ bool LeaveFarAwayAction::isUseful()
     if (trueMaster && !GET_PLAYERBOT_AI(trueMaster))
         return false;
 
-    if (botAI->IsAltBot() &&
-        (!groupLeaderBotAI || IsSelfBot(groupLeader)))  // Don't leave when an altbot is grouped under a regular real player or a selfbot.
+    if (botAI->IsAlt() &&
+        (!groupLeaderBotAI || groupLeaderBotAI->IsRealPlayer()))  // Don't leave group when alt grouped with player groupLeader.
         return false;
 
     if (botAI->GetGrouperType() == GrouperType::SOLO)
@@ -138,7 +138,7 @@ bool LeaveFarAwayAction::isUseful()
     if (dCount > 9)
         return true;
 
-    if (dCount > 4 && !botAI->HasGameClientMaster())
+    if (dCount > 4 && !botAI->HasRealPlayerMaster())
         return true;
 
     if (bot->GetGuildId() == groupLeader->GetGuildId())

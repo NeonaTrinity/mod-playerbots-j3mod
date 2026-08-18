@@ -1,10 +1,10 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "Trigger.h"
+
 #include "AiObjectContext.h"
 #include "Event.h"
 
@@ -36,7 +36,7 @@ bool Trigger::needCheck(uint32 now)
     if (checkInterval < 2)
         return true;
 
-    if (!lastCheckTime || now - lastCheckTime >= uint32(checkInterval))
+    if (!lastCheckTime || now - lastCheckTime >= checkInterval)
     {
         lastCheckTime = now;
         return true;

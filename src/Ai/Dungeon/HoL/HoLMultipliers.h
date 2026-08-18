@@ -1,9 +1,3 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
 #ifndef PLAYERBOTS_HOLMULTIPLIERS_H
 #define PLAYERBOTS_HOLMULTIPLIERS_H
 
@@ -15,7 +9,7 @@ class BjarngrimMultiplier : public Multiplier
         BjarngrimMultiplier(PlayerbotAI* ai) : Multiplier(ai, "general bjarngrim") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 class VolkhanMultiplier : public Multiplier
@@ -24,7 +18,7 @@ class VolkhanMultiplier : public Multiplier
         VolkhanMultiplier(PlayerbotAI* ai) : Multiplier(ai, "volkhan") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 class IonarMultiplier : public Multiplier
@@ -33,7 +27,7 @@ class IonarMultiplier : public Multiplier
         IonarMultiplier(PlayerbotAI* ai) : Multiplier(ai, "ionar") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 class LokenMultiplier : public Multiplier
@@ -42,7 +36,7 @@ class LokenMultiplier : public Multiplier
         LokenMultiplier(PlayerbotAI* ai) : Multiplier(ai, "loken") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 #endif

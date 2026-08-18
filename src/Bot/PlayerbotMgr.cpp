@@ -4,12 +4,19 @@
  */
 
 #include "PlayerbotMgr.h"
-#include "BroadcastHelper.h"
+
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <unordered_set>
+#include <openssl/sha.h>
+#include <iomanip>
+#include <algorithm>
+
 #include "ChannelMgr.h"
 #include "CharacterCache.h"
 #include "CharacterPackets.h"
 #include "Common.h"
-#include "DatabaseEnv.h"
 #include "Define.h"
 #include "Group.h"
 #include "GuildMgr.h"
@@ -17,25 +24,20 @@
 #include "ObjectGuid.h"
 #include "ObjectMgr.h"
 #include "PlayerbotAIConfig.h"
-#include "PlayerbotFactory.h"
-#include "PlayerbotGuildMgr.h"
-#include "PlayerbotOperations.h"
 #include "PlayerbotRepository.h"
+#include "PlayerbotFactory.h"
+#include "PlayerbotOperations.h"
 #include "PlayerbotSecurity.h"
 #include "PlayerbotTextMgr.h"
 #include "PlayerbotWorldThreadProcessor.h"
 #include "Playerbots.h"
+#include "PlayerbotGuildMgr.h"
 #include "RandomPlayerbotMgr.h"
 #include "SharedDefines.h"
 #include "WorldSession.h"
+#include "BroadcastHelper.h"
 #include "WorldSessionMgr.h"
-#include <algorithm>
-#include <cstdio>
-#include <cstring>
-#include <iomanip>
-#include <openssl/sha.h>
-#include <string>
-#include <unordered_set>
+#include "DatabaseEnv.h"
 
 class BotInitGuard
 {
@@ -128,7 +130,7 @@ void PlayerbotHolder::AddPlayerBot(ObjectGuid playerGuid, uint32 masterAccountId
                 ++loadingForMaster;
         }
         uint32 count = mgr->GetPlayerbotsCount() + loadingForMaster;
-        if (count >= uint32(PlayerbotAIConfig::instance().maxAddedBots))
+        if (count >= PlayerbotAIConfig::instance().maxAddedBots)
         {
             allowed = false;
             out << "Failure: You have added too many bots (more than " << sPlayerbotAIConfig.maxAddedBots << ")";
@@ -283,7 +285,7 @@ void PlayerbotHolder::LogoutAllBots()
             break;
 
         Player* bot= itr->second;
-        if (!IsSelfBot(bot))
+        if (!GET_PLAYERBOT_AI(bot)->IsRealPlayer())
             LogoutPlayerBot(bot->GetGUID());
     }
     */
@@ -296,7 +298,7 @@ void PlayerbotHolder::LogoutAllBots()
             continue;
 
         PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
-        if (!botAI || IsSelfBot(bot))
+        if (!botAI || botAI->IsRealPlayer())
             continue;
 
         LogoutPlayerBot(bot->GetGUID());
@@ -313,7 +315,7 @@ void PlayerbotMgr::CancelLogout()
     {
         Player* const bot = it->second;
         PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
-        if (!botAI || IsSelfBot(bot))
+        if (!botAI || botAI->IsRealPlayer())
             continue;
 
         if (bot->GetSession()->isLogingOut())
@@ -330,7 +332,7 @@ void PlayerbotMgr::CancelLogout()
     {
         Player* const bot = it->second;
         PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
-        if (!botAI || IsSelfBot(bot))
+        if (!botAI || botAI->IsRealPlayer())
             continue;
 
         if (botAI->GetMaster() != master)
@@ -357,15 +359,10 @@ void PlayerbotHolder::LogoutPlayerBot(ObjectGuid guid)
         PlayerbotWorldThreadProcessor::instance().QueueOperation(std::move(cleanupOp));
 
         LOG_DEBUG("playerbots", "Bot {} logging out", bot->GetName().c_str());
-
-        // Remove taxi cheat flag on alts.
-        if (!sRandomPlayerbotMgr.IsRandomBot(bot) && bot->isTaxiCheater())
-            bot->SetTaxiCheater(false);
-
         bot->SaveToDB(false, false);
 
         WorldSession* botWorldSessionPtr = bot->GetSession();
-        [[maybe_unused]] WorldSession* masterWorldSessionPtr = nullptr;     // Remove [[maybe_unused]] tag if timed logout implemented.
+        WorldSession* masterWorldSessionPtr = nullptr;
 
         if (botWorldSessionPtr->isLogingOut())
             return;
@@ -423,7 +420,7 @@ void PlayerbotHolder::DisablePlayerBot(ObjectGuid guid)
         bot->GetMotionMaster()->Clear();
 
         Group* group = bot->GetGroup();
-        if (group && !bot->InBattleground() && !bot->InBattlegroundQueue() && IsRealPlayer(botAI->GetMaster()))
+        if (group && !bot->InBattleground() && !bot->InBattlegroundQueue() && botAI->HasActivePlayerMaster())
         {
             PlayerbotRepository::instance().Save(botAI);
         }
@@ -431,6 +428,13 @@ void PlayerbotHolder::DisablePlayerBot(ObjectGuid guid)
         LOG_DEBUG("playerbots", "Bot {} logged out", bot->GetName().c_str());
 
         bot->SaveToDB(false, false);
+
+        if (botAI->GetAiObjectContext())  // Maybe some day re-write to delate all pointer values.
+        {
+            TravelTarget* target = botAI->GetAiObjectContext()->GetValue<TravelTarget*>("travel target")->Get();
+            if (target)
+                delete target;
+        }
 
         RemoveFromPlayerbotsMap(guid);  // deletes bot player ptr inside this WorldSession PlayerBotMap
 
@@ -547,14 +551,15 @@ void PlayerbotHolder::OnBotLogin(Player* const bot)
         Group* mgroup = master->GetGroup();
         if (mgroup->GetMembersCount() >= 5)
         {
-            // A 5-member party is full, so only a raid can take a 6th member. GroupInviteOperation::
-            // Execute() self-converts a non-raid group with >= 5 members to a raid before adding, so a
-            // separate ConvertToRaid is unnecessary here. Queue the invite for a raid OR a plain
-            // (non-LFG/BG/battlefield) party; we deliberately skip LFG/BG/BFG groups so a bot login
-            // never force-converts a live dungeon-finder or battleground group into a raid.
-            if (mgroup->isRaidGroup() || (!mgroup->isLFGGroup() && !mgroup->isBGGroup() && !mgroup->isBFGroup()))
+            if (!mgroup->isRaidGroup() && !mgroup->isLFGGroup() && !mgroup->isBGGroup() && !mgroup->isBFGroup())
             {
-                // Queue AddMember operation; Execute() converts the party to a raid before adding.
+                // Queue ConvertToRaid operation
+                auto convertOp = std::make_unique<GroupConvertToRaidOperation>(master->GetGUID());
+                PlayerbotWorldThreadProcessor::instance().QueueOperation(std::move(convertOp));
+            }
+            if (mgroup->isRaidGroup())
+            {
+                // Queue AddMember operation
                 auto addOp = std::make_unique<GroupInviteOperation>(master->GetGUID(), bot->GetGUID());
                 PlayerbotWorldThreadProcessor::instance().QueueOperation(std::move(addOp));
             }

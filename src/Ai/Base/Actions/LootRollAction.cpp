@@ -1,10 +1,10 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "LootRollAction.h"
+
 #include "Event.h"
 #include "Group.h"
 #include "ItemUsageValue.h"
@@ -20,7 +20,6 @@ bool LootRollAction::Execute(Event /*event*/)
         return false;
 
     std::vector<Roll*> rolls = group->GetRolls();
-    bool voted = false;
     for (Roll*& roll : rolls)
     {
         auto voteItr = roll->playerVote.find(bot->GetGUID());
@@ -103,10 +102,11 @@ bool LootRollAction::Execute(Event /*event*/)
                 group->CountRollVote(bot->GetGUID(), guid, vote);
                 break;
         }
-        voted = true;
+        // One item at a time
+        return true;
     }
 
-    return voted;
+    return false;
 }
 
 RollVote LootRollAction::CalculateRollVote(ItemTemplate const* proto, ItemUsage usage)
@@ -143,7 +143,7 @@ RollVote LootRollAction::CalculateRollVote(ItemTemplate const* proto, ItemUsage 
     return StoreLootAction::IsLootAllowed(proto->ItemId, GET_PLAYERBOT_AI(bot)) ? needVote : PASS;
 }
 
-bool MasterLootRollAction::isUseful() { return !IsRealPlayer(botAI->GetMaster()); }
+bool MasterLootRollAction::isUseful() { return !botAI->HasActivePlayerMaster(); }
 
 bool MasterLootRollAction::Execute(Event event)
 {

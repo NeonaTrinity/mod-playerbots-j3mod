@@ -1,15 +1,9 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
 #include "TKTriggers.h"
+#include "TKHelpers.h"
+#include "TKActions.h"
+#include "TKKaelthasBossAI.h"
 #include "Playerbots.h"
 #include "RaidBossHelpers.h"
-#include "TKActions.h"
-#include "TKHelpers.h"
-#include "TKKaelthasBossAI.h"
 
 using namespace TempestKeepHelpers;
 
@@ -113,7 +107,7 @@ bool AlarPhase2EncounterIsAtRoomCenterTrigger::IsActive()
 
 bool AlarStrategyChangesBetweenPhasesTrigger::IsActive()
 {
-    return IsMechanicTrackerBot(bot, TEMPEST_KEEP_MAP_ID) &&
+    return botAI->IsDps(bot) && IsMechanicTrackerBot(botAI, bot, TEMPEST_KEEP_MAP_ID) &&
            AI_VALUE2(Unit*, "find target", "al'ar");
 }
 
@@ -182,9 +176,7 @@ bool VoidReaverArcaneOrbIsIncomingTrigger::IsActive()
 
 bool VoidReaverBotIsNotInCombatTrigger::IsActive()
 {
-    return bot->GetMapId() == TEMPEST_KEEP_MAP_ID &&
-           !AI_VALUE2(bool, "combat", "self target") &&
-           !AI_VALUE2(Unit*, "find target", "void reaver");
+    return !bot->IsInCombat();
 }
 
 // High Astromancer Solarian
@@ -372,7 +364,7 @@ bool KaelthasSunstriderDeterminingAdvisorKillOrderTrigger::IsActive()
 
 bool KaelthasSunstriderWaitingForTanksToGetAggroOnAdvisorsTrigger::IsActive()
 {
-    if (!IsMechanicTrackerBot(bot, TEMPEST_KEEP_MAP_ID))
+    if (!botAI->IsDps(bot))
         return false;
 
     Unit* kaelthas = AI_VALUE2(Unit*, "find target", "kael'thas sunstrider");
@@ -380,7 +372,10 @@ bool KaelthasSunstriderWaitingForTanksToGetAggroOnAdvisorsTrigger::IsActive()
         return false;
 
     boss_kaelthas* kaelAI = dynamic_cast<boss_kaelthas*>(kaelthas->GetAI());
-    return kaelAI && kaelAI->GetPhase() == PHASE_SINGLE_ADVISOR;
+    if (!kaelAI || kaelAI->GetPhase() != PHASE_SINGLE_ADVISOR)
+        return false;
+
+    return IsMechanicTrackerBot(botAI, bot, TEMPEST_KEEP_MAP_ID, GetCapernianTank(bot));
 }
 
 bool KaelthasSunstriderLegendaryWeaponsAreAliveTrigger::IsActive()

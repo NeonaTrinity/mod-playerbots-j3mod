@@ -1,10 +1,12 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "WarlockActions.h"
+
+#include <string>
+#include <vector>
 #include "Event.h"
 #include "Item.h"
 #include "ObjectGuid.h"
@@ -12,12 +14,10 @@
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
 #include "ServerFacade.h"
-#include "Timer.h"
 #include "Unit.h"
-#include <mutex>
-#include <string>
+#include "Timer.h"
 #include <unordered_map>
-#include <vector>
+#include <mutex>
 
 const int ITEM_SOUL_SHARD = 6265;
 

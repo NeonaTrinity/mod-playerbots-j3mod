@@ -1,20 +1,14 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
 #include "ICCTriggers.h"
-#include "GenericTriggers.h"
-#include "GridNotifiers.h"
 #include "ICCActions.h"
-#include "ICCScripts.h"
 #include "NearestNpcsValue.h"
-#include "ObjectAccessor.h"
 #include "PlayerbotAIConfig.h"
+#include "ObjectAccessor.h"
+#include "GenericTriggers.h"
 #include "Playerbots.h"
 #include "Trigger.h"
+#include "GridNotifiers.h"
 #include "Vehicle.h"
+#include "ICCScripts.h"
 
 //Lord Marrogwar
 bool IccLmTrigger::IsActive()
@@ -23,7 +17,8 @@ bool IccLmTrigger::IsActive()
     if (!boss)
         return false;
 
-    IccStripExperienced(bot);
+    if (bot->HasAura(SPELL_EXPERIENCED))
+        bot->RemoveAura(SPELL_EXPERIENCED);
 
     return true;
 }
@@ -53,7 +48,8 @@ bool IccRottingFrostGiantTankPositionTrigger::IsActive()
     if (!boss)
         return false;
 
-    IccStripExperienced(bot);
+    if (bot->HasAura(SPELL_EXPERIENCED))
+        bot->RemoveAura(SPELL_EXPERIENCED);
 
     return true;
 }
@@ -138,7 +134,8 @@ bool IccDbsTrigger::IsActive()
     if (!boss)
         return false;
 
-    IccStripExperienced(bot);
+    if (bot->HasAura(SPELL_EXPERIENCED))
+        bot->RemoveAura(SPELL_EXPERIENCED);
 
     return true;
 }
@@ -179,7 +176,8 @@ bool IccFestergutGroupPositionTrigger::IsActive()
     if (!boss)
         return false;
 
-    IccStripExperienced(bot);
+    if (bot->HasAura(SPELL_EXPERIENCED))
+        bot->RemoveAura(SPELL_EXPERIENCED);
 
     return true;
 }
@@ -190,7 +188,22 @@ bool IccFestergutSporeTrigger::IsActive()
     if (!boss || botAI->IsTank(bot))
         return false;
 
-    return IccAnyGroupMemberHasAura(bot, SPELL_GAS_SPORE);
+    // Check for spore aura (ID: 69279) on any bot in the group
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+    {
+        Player* member = itr->GetSource();
+        if (!member)
+            continue;
+
+        if (member->HasAura(SPELL_GAS_SPORE))
+            return true;
+    }
+
+    return false;
 }
 
 bool IccFestergutAvoidMalleableGooTrigger::IsActive()
@@ -206,8 +219,16 @@ bool IccFestergutAvoidMalleableGooTrigger::IsActive()
 
     // During spore phase, position switching handles goo avoidance — free-dodge
     // would pull bots out of their assigned spore spots.
-    if (IccAnyGroupMemberHasAura(bot, SPELL_GAS_SPORE))
-        return false;
+    Group* group = bot->GetGroup();
+    if (group)
+    {
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (member && member->HasAura(SPELL_GAS_SPORE))
+                return false;
+        }
+    }
 
     constexpr uint32 impactLifetimeMs = 8000;
     constexpr float gooDangerRadius = 12.0f;
@@ -217,30 +238,34 @@ bool IccFestergutAvoidMalleableGooTrigger::IsActive()
     float botY = bot->GetPositionY();
     ObjectGuid botGuid = bot->GetGUID();
 
-    IcecrownHelpers::IccInstanceState& st = IcecrownHelpers::IccState(bot->GetMap()->GetInstanceId());
-
-    for (auto const& impact : st.malleableGoo)
+    auto impactIt = IcecrownHelpers::malleableGooImpacts.find(bot->GetMap()->GetInstanceId());
+    if (impactIt != IcecrownHelpers::malleableGooImpacts.end())
     {
-        if (getMSTimeDiff(impact.castTime, now) > impactLifetimeMs)
-            continue;
-        float dx = botX - impact.position.GetPositionX();
-        float dy = botY - impact.position.GetPositionY();
-        if (dx * dx + dy * dy < gooDangerRadius * gooDangerRadius)
+        for (auto const& impact : impactIt->second)
         {
-            uint32 waitUntil = impact.castTime + impactLifetimeMs;
-            auto& slot = st.festergutGooWaitUntil[botGuid];
-            if (waitUntil > slot)
-                slot = waitUntil;
-            return true;
+            if (getMSTimeDiff(impact.castTime, now) > impactLifetimeMs)
+                continue;
+            float dx = botX - impact.position.GetPositionX();
+            float dy = botY - impact.position.GetPositionY();
+            if (dx * dx + dy * dy < gooDangerRadius * gooDangerRadius)
+            {
+                // Lock bot into wait mode until this impact expires - prevents
+                // group-position from yanking it back into the danger zone.
+                uint32 waitUntil = impact.castTime + impactLifetimeMs;
+                auto& slot = IcecrownHelpers::festergutGooWaitUntil[botGuid];
+                if (waitUntil > slot)
+                    slot = waitUntil;
+                return true;
+            }
         }
     }
 
-    auto it = st.festergutGooWaitUntil.find(botGuid);
-    if (it != st.festergutGooWaitUntil.end())
+    auto it = IcecrownHelpers::festergutGooWaitUntil.find(botGuid);
+    if (it != IcecrownHelpers::festergutGooWaitUntil.end())
     {
         if (now < it->second)
             return true;
-        st.festergutGooWaitUntil.erase(it);
+        IcecrownHelpers::festergutGooWaitUntil.erase(it);
     }
 
     return false;
@@ -253,7 +278,8 @@ bool IccRotfaceTankPositionTrigger::IsActive()
     if (!boss || !(botAI->IsTank(bot) || botAI->IsMelee(bot)))
         return false;
 
-    IccStripExperienced(bot);
+    if (bot->HasAura(SPELL_EXPERIENCED))
+        bot->RemoveAura(SPELL_EXPERIENCED);
 
     return true;
 }
@@ -304,17 +330,18 @@ bool IccRotfaceAvoidVileGasTrigger::IsActive()
 
     uint32 const now = getMSTime();
 
-    IcecrownHelpers::IccInstanceState& st = IcecrownHelpers::IccState(bot->GetMap()->GetInstanceId());
+    auto vgIt = IcecrownHelpers::rotfaceVileGas.find(bot->GetMap()->GetInstanceId());
     bool const isVictim =
-        st.rotfaceVileGas.victimGuid == bot->GetGUID() &&
-        getMSTimeDiff(st.rotfaceVileGas.castTime, now) < 8000;
+        vgIt != IcecrownHelpers::rotfaceVileGas.end() &&
+        vgIt->second.victimGuid == bot->GetGUID() &&
+        getMSTimeDiff(vgIt->second.castTime, now) < 8000;
     if (isVictim)
         return true;
 
     if (botAI->HasAura("Vile Gas", bot))
         return true;
 
-    auto const& waitMap = st.rotfaceVileGasWaitUntil;
+    auto const& waitMap = IcecrownHelpers::rotfaceVileGasWaitUntil;
     auto it = waitMap.find(bot->GetGUID());
     if (it != waitMap.end() && now < it->second)
         return true;
@@ -390,7 +417,7 @@ bool IccPutricideMalleableGooTrigger::IsActive()
     Difficulty const diff = bot->GetRaidDifficulty();
 
     // Heroic cheat buffs — apply to all group members (bots + real players)
-    if (boss && boss->IsInCombat() && sPlayerbotAIConfig.EnableICCBuffs &&
+    if (boss && sPlayerbotAIConfig.EnableICCBuffs &&
         (diff == RAID_DIFFICULTY_10MAN_HEROIC || diff == RAID_DIFFICULTY_25MAN_HEROIC))
     {
         if (Group* buffGroup = bot->GetGroup())
@@ -401,7 +428,14 @@ bool IccPutricideMalleableGooTrigger::IsActive()
                 if (!member || !member->IsAlive() || !member->IsInWorld())
                     continue;
 
-                IccApplyHeroicBuffToMember(botAI, member, false, true);
+                if (!member->HasAura(SPELL_EXPERIENCED))
+                    member->AddAura(SPELL_EXPERIENCED, member);
+
+                if (!member->HasAura(SPELL_AGEIS_OF_DALARAN))
+                    member->AddAura(SPELL_AGEIS_OF_DALARAN, member);
+
+                if (!PlayerbotAI::IsTank(member) && !member->HasAura(SPELL_NO_THREAT))
+                    member->AddAura(SPELL_NO_THREAT, member);
 
                 if (PlayerbotAI::IsTank(member) && !member->HasAura(SPELL_SPITEFULL_FURY) &&
                     boss->GetVictim() != member)
@@ -470,7 +504,8 @@ bool IccBpcKelesethTankTrigger::IsActive()
     if (!boss)
         return false;
 
-    IccStripExperienced(bot);
+    if (bot->HasAura(SPELL_EXPERIENCED))
+        bot->RemoveAura(SPELL_EXPERIENCED);
 
     if (!botAI->IsAssistTank(bot))
         return false;
@@ -488,10 +523,15 @@ bool IccBpcMainTankTrigger::IsActive()
     if (!botAI->IsTank(bot))
         return false;
 
-    if (!IccAnyBloodPrincePresent(botAI))
+    Unit* valanar = AI_VALUE2(Unit*, "find target", "prince valanar");
+    Unit* taldaram = AI_VALUE2(Unit*, "find target", "prince taldaram");
+    Unit* keleseth = AI_VALUE2(Unit*, "find target", "prince keleseth");
+
+    if (!(valanar || taldaram || keleseth))
         return false;
 
-    IccStripExperienced(bot);
+    if (bot->HasAura(SPELL_EXPERIENCED))
+        bot->RemoveAura(SPELL_EXPERIENCED);
 
     return true;
 }
@@ -520,7 +560,11 @@ bool IccBpcEmpoweredVortexTrigger::IsActive()
 
 bool IccBpcKineticBombTrigger::IsActive()
 {
-    if (!IccAnyBloodPrincePresent(botAI))
+    Unit* valanar = AI_VALUE2(Unit*, "find target", "prince valanar");
+    Unit* taldaram = AI_VALUE2(Unit*, "find target", "prince taldaram");
+    Unit* keleseth = AI_VALUE2(Unit*, "find target", "prince keleseth");
+
+    if (!(valanar || taldaram || keleseth))
         return false;
 
     if (!botAI->IsRanged(bot) || botAI->IsHeal(bot))
@@ -565,9 +609,6 @@ bool IccBpcKineticBombTrigger::IsActive()
 
 bool IccBpcBallOfFlameTrigger::IsActive()
 {
-    if (botAI->IsTank(bot))
-        return false;
-
     Unit* valanar = AI_VALUE2(Unit*, "find target", "prince valanar");
     Unit* taldaram = AI_VALUE2(Unit*, "find target", "prince taldaram");
     Unit* keleseth = AI_VALUE2(Unit*, "find target", "prince keleseth");
@@ -589,10 +630,15 @@ bool IccBqlGroupPositionTrigger::IsActive()
     if (!boss)
         return false;
 
-    if (IccAnyBloodPrincePresent(botAI))
+    Unit* valanar = AI_VALUE2(Unit*, "find target", "prince valanar");
+    Unit* taldaram = AI_VALUE2(Unit*, "find target", "prince taldaram");
+    Unit* keleseth = AI_VALUE2(Unit*, "find target", "prince keleseth");
+
+    if (valanar || taldaram || keleseth)
         return false;
 
-    IccStripExperienced(bot);
+    if (bot->HasAura(SPELL_EXPERIENCED))
+        bot->RemoveAura(SPELL_EXPERIENCED);
 
     return true;
 }
@@ -603,7 +649,11 @@ bool IccBqlPactOfDarkfallenTrigger::IsActive()
     if (!boss)
         return false;
 
-    if (IccAnyBloodPrincePresent(botAI))
+    Unit* valanar = AI_VALUE2(Unit*, "find target", "prince valanar");
+    Unit* taldaram = AI_VALUE2(Unit*, "find target", "prince taldaram");
+    Unit* keleseth = AI_VALUE2(Unit*, "find target", "prince keleseth");
+
+    if (valanar || taldaram || keleseth)
         return false;
 
     Aura* aura = botAI->GetAura("Pact of the Darkfallen", bot);
@@ -619,7 +669,11 @@ bool IccBqlVampiricBiteTrigger::IsActive()
     if (!boss)
         return false;
 
-    if (IccAnyBloodPrincePresent(botAI))
+    Unit* valanar = AI_VALUE2(Unit*, "find target", "prince valanar");
+    Unit* taldaram = AI_VALUE2(Unit*, "find target", "prince taldaram");
+    Unit* keleseth = AI_VALUE2(Unit*, "find target", "prince keleseth");
+
+    if (valanar || taldaram || keleseth)
         return false;
 
     Aura* aura = botAI->GetAura("Frenzied Bloodthirst", bot);
@@ -658,7 +712,8 @@ bool IccValithriaGroupTrigger::IsActive()
     if (!boss)
         return false;
 
-    IccStripExperienced(bot);
+    if (bot->HasAura(SPELL_EXPERIENCED))
+        bot->RemoveAura(SPELL_EXPERIENCED);
 
     return true;
 }
@@ -703,8 +758,81 @@ bool IccValithriaPortalTrigger::IsActive()
     if ((worm && worm->GetVictim() == bot) || (zombie && zombie->GetVictim() == bot))
         return false;
 
-    auto const shouldHealRaid = IccValithriaShouldHealRaid(bot, botAI);
-    if (!shouldHealRaid.has_value() || *shouldHealRaid)
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    // Collect healer GUIDs and check for druids
+    std::vector<ObjectGuid> healerGuids;
+    std::vector<ObjectGuid> druidGuids;
+    int healerCount = 0;
+
+    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+    {
+        Player* member = itr->GetSource();
+        if (!member || !member->IsAlive() || botAI->IsRealPlayer())
+            continue;
+
+        if (botAI->IsHeal(member) && !botAI->IsRealPlayer())
+        {
+            healerCount++;
+            healerGuids.push_back(member->GetGUID());
+            // Check if druid (class 11)
+            if (member->getClass() == CLASS_DRUID)
+                druidGuids.push_back(member->GetGUID());
+        }
+    }
+
+    // Sort GUIDs to ensure consistent ordering
+    std::sort(healerGuids.begin(), healerGuids.end());
+    std::sort(druidGuids.begin(), druidGuids.end());
+
+    // Find position of current bot's GUID in the sorted list
+    auto botGuidPos = std::find(healerGuids.begin(), healerGuids.end(), bot->GetGUID());
+    if (botGuidPos == healerGuids.end())
+        return false;
+
+    int healerIndex = std::distance(healerGuids.begin(), botGuidPos);
+
+    // Find if this bot is a druid
+    bool isDruid = (bot->getClass() == CLASS_DRUID);
+
+    // Determine raid healer assignment
+    bool shouldHealRaid = false;
+    int druidCount = druidGuids.size();
+
+    if (druidCount > 0)
+    {
+        // If we have druids, they should heal raid
+        if (isDruid)
+        {
+            // If there are more druids than raid healers needed, extra druids can heal boss
+            int raidHealersNeeded = healerCount > 3 ? 2 : 1;
+            int druidIndex =
+                std::distance(druidGuids.begin(), std::find(druidGuids.begin(), druidGuids.end(), bot->GetGUID()));
+            if (druidIndex < raidHealersNeeded)
+                shouldHealRaid = true;
+            else
+                shouldHealRaid = false;
+        }
+        else if (healerCount > 3 && druidCount == 1)
+        {
+            // If only 1 druid and need 2 raid healers, pick the last non-druid healer as well
+            if (healerIndex == (healerCount - 1) && !isDruid)
+                shouldHealRaid = true;
+        }
+    }
+    else
+    {
+        // No druids, assign raid healers as before
+        if (healerCount > 3)
+            shouldHealRaid = (healerIndex >= (healerCount - 2));
+        else
+            shouldHealRaid = (healerIndex == (healerCount - 1));
+    }
+
+    // Raid healers should not use portals
+    if (shouldHealRaid)
         return false;
 
     // Find the nearest portal creature
@@ -735,8 +863,81 @@ bool IccValithriaHealTrigger::IsActive()
     if ((worm && worm->GetVictim() == bot) || (zombie && zombie->GetVictim() == bot))
         return false;
 
-    auto const shouldHealRaid = IccValithriaShouldHealRaid(bot, botAI);
-    if (!shouldHealRaid.has_value() || *shouldHealRaid)
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    // Collect healer GUIDs and check for druids
+    std::vector<ObjectGuid> healerGuids;
+    std::vector<ObjectGuid> druidGuids;
+    int healerCount = 0;
+
+    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+    {
+        Player* member = itr->GetSource();
+        if (!member || !member->IsAlive() || botAI->IsRealPlayer())
+            continue;
+
+        if (botAI->IsHeal(member) && !botAI->IsRealPlayer())
+        {
+            healerCount++;
+            healerGuids.push_back(member->GetGUID());
+            // Check if druid (class 11)
+            if (member->getClass() == CLASS_DRUID)
+                druidGuids.push_back(member->GetGUID());
+        }
+    }
+
+    // Sort GUIDs to ensure consistent ordering
+    std::sort(healerGuids.begin(), healerGuids.end());
+    std::sort(druidGuids.begin(), druidGuids.end());
+
+    // Find position of current bot's GUID in the sorted list
+    auto botGuidPos = std::find(healerGuids.begin(), healerGuids.end(), bot->GetGUID());
+    if (botGuidPos == healerGuids.end())
+        return false;
+
+    int healerIndex = std::distance(healerGuids.begin(), botGuidPos);
+
+    // Find if this bot is a druid
+    bool isDruid = (bot->getClass() == CLASS_DRUID);
+
+    // Determine raid healer assignment
+    bool shouldHealRaid = false;
+    int druidCount = druidGuids.size();
+
+    if (druidCount > 0)
+    {
+        // If we have druids, they should heal raid
+        if (isDruid)
+        {
+            // If there are more druids than raid healers needed, extra druids can heal boss
+            int raidHealersNeeded = healerCount > 3 ? 2 : 1;
+            int druidIndex =
+                std::distance(druidGuids.begin(), std::find(druidGuids.begin(), druidGuids.end(), bot->GetGUID()));
+            if (druidIndex < raidHealersNeeded)
+                shouldHealRaid = true;
+            else
+                shouldHealRaid = false;  // extra druids can heal boss
+        }
+        else if (healerCount > 3 && druidCount == 1)
+        {
+            // If only 1 druid and need 2 raid healers, pick the last non-druid healer as well
+            if (healerIndex == (healerCount - 1) && !isDruid)
+                shouldHealRaid = true;
+        }
+    }
+    else
+    {
+        // No druids, assign raid healers as before
+        if (healerCount > 3)
+            shouldHealRaid = (healerIndex >= (healerCount - 2));
+        else
+            shouldHealRaid = (healerIndex == (healerCount - 1));
+    }
+
+    // If assigned to raid healing, return false to not heal Valithria
+    if (shouldHealRaid)
         return false;
 
     if (bot->GetHealthPct() < 50.0f)
@@ -771,8 +972,7 @@ bool IccSindragosaGroupPositionTrigger::IsActive()
 
     Difficulty diff = bot->GetRaidDifficulty();
 
-    if (sPlayerbotAIConfig.EnableICCBuffs && boss->IsInCombat() && diff &&
-        (diff == RAID_DIFFICULTY_10MAN_HEROIC || diff == RAID_DIFFICULTY_25MAN_HEROIC))
+    if (sPlayerbotAIConfig.EnableICCBuffs && diff && (diff == RAID_DIFFICULTY_10MAN_HEROIC || diff == RAID_DIFFICULTY_25MAN_HEROIC))
     {
         //-------CHEAT-------
         // Apply to every alive group member so real players benefit too,
@@ -784,7 +984,14 @@ bool IccSindragosaGroupPositionTrigger::IsActive()
                 if (!member || !member->IsAlive() || !member->IsInWorld())
                     continue;
 
-                IccApplyHeroicBuffToMember(botAI, member, false, true);
+                if (!member->HasAura(SPELL_EXPERIENCED))
+                    member->AddAura(SPELL_EXPERIENCED, member);
+
+                if (!member->HasAura(SPELL_AGEIS_OF_DALARAN))
+                    member->AddAura(SPELL_AGEIS_OF_DALARAN, member);
+
+                if (!botAI->IsTank(member) && !member->HasAura(SPELL_NO_THREAT))
+                    member->AddAura(SPELL_NO_THREAT, member);
 
                 if (botAI->IsMainTank(member) && boss->GetVictim() != member &&
                     !member->HasAura(SPELL_SPITEFULL_FURY))
@@ -802,53 +1009,11 @@ bool IccSindragosaGroupPositionTrigger::IsActive()
             bot->AddAura(SPELL_NITRO_BOOSTS, bot);
     }
 
-    // Last phase: the main tank must keep tanking, never run to a tomb spot.
-    // Strip its Frost Beacon so the tomb-positioning logic doesn't apply. The
-    // assist tank keeps its beacon and is allowed to move to the beacon spot.
-    if (botAI->IsMainTank(bot) && bot->HasAura(SPELL_FROST_BEACON) && boss->HealthBelowPct(35) &&
+    // Last phase: tanks must keep tanking, never run to a tomb spot. Strip
+    // Frost Beacon so the tomb-positioning logic doesn't apply to them.
+    if (botAI->IsTank(bot) && bot->HasAura(SPELL_FROST_BEACON) && boss->HealthBelowPct(35) &&
         boss->GetExactDist2d(ICC_SINDRAGOSA_FLYING_POSITION.GetPositionX(), ICC_SINDRAGOSA_FLYING_POSITION.GetPositionY()) >= 30.0f)
         bot->RemoveAura(SPELL_FROST_BEACON);
-
-    if (botAI->IsTank(bot))
-    {
-        // Strip Mystic Buffet: the cheat that makes single-tanking P3 survivable.
-        if (Aura* aura = botAI->GetAura("mystic buffet", bot, false, false))
-            bot->RemoveAura(aura->GetId());
-
-        // Shield tanks while a tomb is up, Blistering Cold is casting, or a last
-        // phase beacon is out (tomb about to form, healers already scattering).
-        bool const shield = (boss->HasUnitState(UNIT_STATE_CASTING) && IccBossCastingBlisteringCold(boss)) ||
-                            (boss->HealthBelowPct(35) && IccAnyGroupMemberHasAura(bot, SPELL_FROST_BEACON)) ||
-                            !IccGetCreaturesByEntries(bot, {NPC_TOMB1, NPC_TOMB2, NPC_TOMB3, NPC_TOMB4}, 150.0f).empty();
-        if (shield && !bot->HasAura(SPELL_MAGIC_BARRIER))
-            bot->AddAura(SPELL_MAGIC_BARRIER, bot);
-        else if (!shield && bot->HasAura(SPELL_MAGIC_BARRIER))
-            bot->RemoveAura(SPELL_MAGIC_BARRIER);
-
-        // Assist tanks generate no threat while another main tank is alive, so
-        // they can never win the threat race at the pull; dropped on promotion.
-        bool mtAlive = false;
-        if (Group* group = bot->GetGroup())
-        {
-            for (GroupReference* itr = group->GetFirstMember(); itr; itr = itr->next())
-            {
-                Player* member = itr->GetSource();
-                if (member && member != bot && member->IsAlive() && botAI->IsMainTank(member))
-                {
-                    mtAlive = true;
-                    break;
-                }
-            }
-        }
-
-        if (mtAlive && !botAI->IsMainTank(bot))
-        {
-            if (!bot->HasAura(SPELL_NO_THREAT))
-                bot->AddAura(SPELL_NO_THREAT, bot);
-        }
-        else if (bot->HasAura(SPELL_NO_THREAT))
-            bot->RemoveAura(SPELL_NO_THREAT);
-    }
 
     if (!boss || bot->HasAura(SPELL_FROST_BEACON) || boss->GetExactDist2d(ICC_SINDRAGOSA_FLYING_POSITION.GetPositionX(), ICC_SINDRAGOSA_FLYING_POSITION.GetPositionY()) < 50.0f)
         return false;
@@ -895,7 +1060,18 @@ bool IccSindragosaHotTrigger::IsActive()
     if (!boss)
         return false;
 
-    return IccAnyGroupMemberHasAura(bot, SPELL_FROST_BEACON);
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+    {
+        Player* member = itr->GetSource();
+        if (member && member->IsAlive() && member->HasAura(SPELL_FROST_BEACON))
+            return true;
+    }
+
+    return false;
 }
 
 bool IccSindragosaBlisteringColdTrigger::IsActive()
@@ -904,7 +1080,7 @@ bool IccSindragosaBlisteringColdTrigger::IsActive()
     if (!boss)
         return false;
 
-    if (botAI->IsTank(bot))
+    if (botAI->IsMainTank(bot))
         return false;
 
     // Don't move if any bot in group has ice tomb
@@ -921,7 +1097,12 @@ bool IccSindragosaBlisteringColdTrigger::IsActive()
     if (boss && boss->HasUnitState(UNIT_STATE_CASTING))
         isCasting = true;
 
-    bool isBlisteringCold = IccBossCastingBlisteringCold(boss);
+    bool isBlisteringCold = false;
+    if (boss && (boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD1) ||
+                 boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD2) ||
+                 boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD3) ||
+                 boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD4)))
+        isBlisteringCold = true;
 
     return isCasting && isBlisteringCold;
 }
@@ -936,7 +1117,12 @@ bool IccSindragosaUnchainedMagicTrigger::IsActive()
     if (!aura)
         return false;
 
-    bool isBlisteringCold = IccBossCastingBlisteringCold(boss);
+    bool isBlisteringCold = false;
+    if (boss && (boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD1) ||
+                 boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD2) ||
+                 boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD3) ||
+                 boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD4)))
+        isBlisteringCold = true;
 
     if (boss && boss->HasUnitState(UNIT_STATE_CASTING) && isBlisteringCold)
         return false;
@@ -954,7 +1140,12 @@ bool IccSindragosaChilledToTheBoneTrigger::IsActive()
     if (!aura)
         return false;
 
-    bool isBlisteringCold = IccBossCastingBlisteringCold(boss);
+    bool isBlisteringCold = false;
+    if (boss && (boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD1) ||
+                 boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD2) ||
+                 boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD3) ||
+                 boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD4)))
+        isBlisteringCold = true;
 
     if (boss && boss->HasUnitState(UNIT_STATE_CASTING) && isBlisteringCold)
         return false;
@@ -968,16 +1159,11 @@ bool IccSindragosaMysticBuffetTrigger::IsActive()
     if (!boss)
         return false;
 
-    if (botAI->IsTank(bot))
-        return false;
-
     if (boss->GetVictim() == bot)
         return false;
 
-    // Last phase only. Do not gate on the bot's own Mystic Buffet aura:
-    // hiding sheds it, so aura-less bots must still run the action or nobody
-    // is left to mark and kill the tomb once the raid has shed its stacks.
-    if (!boss->HealthBelowPct(35))
+    Aura* aura = botAI->GetAura("mystic buffet", bot, false, true);
+    if (!aura)
         return false;
 
     if (bot->HasAura(SPELL_FROST_BEACON))
@@ -985,10 +1171,104 @@ bool IccSindragosaMysticBuffetTrigger::IsActive()
 
     // Blistering Cold takes priority over tomb-hiding in the last phase:
     // skip hiding so the bot can run to the safe spot instead.
-    if (boss->HasUnitState(UNIT_STATE_CASTING) && IccBossCastingBlisteringCold(boss))
+    if (boss->HasUnitState(UNIT_STATE_CASTING) &&
+        (boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD1) ||
+         boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD2) ||
+         boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD3) ||
+         boss->FindCurrentSpellBySpellId(SPELL_BLISTERING_COLD4)))
+        return false;
+
+    if (aura->GetStackAmount() >= 1)
+        return true;
+
+    return false;
+}
+
+bool IccSindragosaMainTankMysticBuffetTrigger::IsActive()
+{
+    Unit* boss = AI_VALUE2(Unit*, "find target", "sindragosa");
+    if (!boss)
+        return false;
+
+    Aura* aura = botAI->GetAura("mystic buffet", bot, false, false);
+    if (botAI->IsTank(bot) && aura) //main tank will delete mystic buffet until I find a better way to swap tanks, atm it is not great since while swapping they will wipe group 7/10 times.
+        bot->RemoveAura(aura->GetId());
+
+    if (botAI->IsTank(bot) && boss->GetVictim() == bot)
+        return false;
+
+    // Only for assist tank
+    if (!botAI->IsAssistTankOfIndex(bot, 0))
+        return false;
+
+    // Don't swap if we have frost beacon
+    if (bot->HasAura(SPELL_FROST_BEACON))   // Frost Beacon
+        return false;
+
+    Unit* mt = AI_VALUE(Unit*, "main tank");
+    if (!mt)
+        return false;
+
+    // Check main tank stacks
+    Aura* mtAura = botAI->GetAura("mystic buffet", mt, false, true);
+    if (!mtAura || mtAura->GetStackAmount() < 6)
+        return false;
+
+    // Check our own stacks - don't taunt if we have too many
+    Aura* selfAura = botAI->GetAura("mystic buffet", bot, false, true);
+    if (selfAura && selfAura->GetStackAmount() > 6)
+        return false;
+
+    // Only taunt if we're in position
+    float distToTankPos = bot->GetExactDist2d(ICC_SINDRAGOSA_TANK_POSITION);
+    if (distToTankPos > 3.0f)
         return false;
 
     return true;
+}
+
+// TODO never triggers since mystic buffet is bypassed in action
+bool IccSindragosaTankSwapPositionTrigger::IsActive()
+{
+    Unit* boss = AI_VALUE2(Unit*, "find target", "sindragosa");
+    if (!boss)
+        return false;
+
+    if (boss && boss->GetVictim() == bot)
+        return false;
+
+    // Only for assist tank
+    if (!botAI->IsAssistTankOfIndex(bot, 0))
+        return false;
+
+    // Don't move to position if we have frost beacon
+    if (bot->HasAura(SPELL_FROST_BEACON))
+        return false;
+
+    // Check our own stacks - don't try to tank if we have too many
+    Aura* selfAura = botAI->GetAura("mystic buffet", bot, false, true);
+    if (selfAura && selfAura->GetStackAmount() > 6)
+        return false;
+
+    // Check if main tank has high stacks
+    Unit* mt = AI_VALUE(Unit*, "main tank");
+    if (!mt)
+        return false;
+
+    Aura* mtAura = botAI->GetAura("mystic buffet", mt, false, true);
+    if (!mtAura)
+        return false;
+
+    uint32 mtStacks = mtAura->GetStackAmount();
+    if (mtStacks < 6)  // Only start moving when MT has 5+ stacks
+        return false;
+
+    // Check if we're already in position
+    float distToTankPos = bot->GetExactDist2d(ICC_SINDRAGOSA_TANK_POSITION);
+    if (distToTankPos <= 3.0f)
+        return false;
+
+    return true;  // Move to position if all conditions are met
 }
 
 bool IccSindragosaFrostBombTrigger::IsActive()
@@ -1070,7 +1350,30 @@ bool IccLichKingWinterTrigger::IsActive()
     if (!boss)
         return false;
 
-    return IccBossHasRemorselessWinter(boss);
+    auto const hasWinterAura = [&]() -> bool
+    {
+        return boss->HasAura(SPELL_REMORSELESS_WINTER1) || boss->HasAura(SPELL_REMORSELESS_WINTER2) ||
+               boss->HasAura(SPELL_REMORSELESS_WINTER3) || boss->HasAura(SPELL_REMORSELESS_WINTER4) ||
+               boss->HasAura(SPELL_REMORSELESS_WINTER5) || boss->HasAura(SPELL_REMORSELESS_WINTER6) ||
+               boss->HasAura(SPELL_REMORSELESS_WINTER7) || boss->HasAura(SPELL_REMORSELESS_WINTER8);
+    };
+
+    auto const isCastingWinter = [&]() -> bool
+    {
+        if (!boss->HasUnitState(UNIT_STATE_CASTING))
+            return false;
+
+        return boss->FindCurrentSpellBySpellId(SPELL_REMORSELESS_WINTER1) ||
+               boss->FindCurrentSpellBySpellId(SPELL_REMORSELESS_WINTER2) ||
+               boss->FindCurrentSpellBySpellId(SPELL_REMORSELESS_WINTER3) ||
+               boss->FindCurrentSpellBySpellId(SPELL_REMORSELESS_WINTER4) ||
+               boss->FindCurrentSpellBySpellId(SPELL_REMORSELESS_WINTER5) ||
+               boss->FindCurrentSpellBySpellId(SPELL_REMORSELESS_WINTER6) ||
+               boss->FindCurrentSpellBySpellId(SPELL_REMORSELESS_WINTER7) ||
+               boss->FindCurrentSpellBySpellId(SPELL_REMORSELESS_WINTER8);
+    };
+
+    return hasWinterAura() || isCastingWinter();
 }
 
 bool IccLichKingAddsTrigger::IsActive()
@@ -1089,7 +1392,8 @@ bool IccLichKingAddsTrigger::IsActive()
         bot->FindNearestCreature(NPC_TERENAS_MENETHIL, 55.0f))
         return true;
 
-    if (!bot->FindNearestCreature(NPC_THE_LICH_KING, 100.0f))
+    Unit* lk = AI_VALUE2(Unit*, "find target", "the lich king");
+    if (!lk)
         return false;
 
     return true;

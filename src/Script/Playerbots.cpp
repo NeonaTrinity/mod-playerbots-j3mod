@@ -1,10 +1,22 @@
 /*
- * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
- * and/or modify it under version 3 of the License, or (at your option), any later version.
+ * This file is part of the AzerothCore Project. See AUTHORS file for Copyright information
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Affero General Public License as published by the
+ * Free Software Foundation; either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "Playerbots.h"
-#include "BattleGroundTactics.h"
+
 #include "BattlefieldScript.h"
 #include "Channel.h"
 #include "Config.h"
@@ -13,13 +25,14 @@
 #include "GuildTaskMgr.h"
 #include "PlayerScript.h"
 #include "PlayerbotAIConfig.h"
-#include "PlayerbotCommandScript.h"
 #include "PlayerbotGuildMgr.h"
 #include "PlayerbotSpellRepository.h"
 #include "PlayerbotWorldThreadProcessor.h"
 #include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
+#include "PlayerbotCommandScript.h"
 #include "cmath"
+#include "BattleGroundTactics.h"
 
 class PlayerbotsDatabaseScript : public DatabaseScript
 {
@@ -121,9 +134,9 @@ public:
         if (!player->IsInWorld() || player->GetMapId() == mapid)
             return true;
 
-        // If this is a selfbot, do nothing
+        // If real player do nothing
         PlayerbotAI* ai = GET_PLAYERBOT_AI(player);
-        if (!ai || IsSelfBot(player))
+        if (!ai || ai->IsRealPlayer())
             return true;
 
         // Cross-map bot teleport: defer visibility reference cleanup.
@@ -415,7 +428,7 @@ public:
         if (botAI == nullptr)
             return true;
 
-        return IsSelfBot(player);
+        return botAI->IsRealPlayer();
     }
 
     void OnPlayerbotPacketSent(Player* player, WorldPacket const* packet) override
@@ -450,8 +463,10 @@ public:
         {
             PlayerbotAI* botAI = PlayerbotsMgr::instance().GetPlayerbotAI(player);
 
-            if (botAI == nullptr || IsSelfBot(player))
+            if (botAI == nullptr || botAI->IsRealPlayer())
+            {
                 playerbotMgr->LogoutAllBots();
+            }
         }
 
         sRandomPlayerbotMgr.OnPlayerLogout(player);
@@ -510,12 +525,9 @@ public:
 
 void AddPlayerbotsSecureLoginScripts();
 
-void AddSC_MagtheridonBotScripts();
 void AddSC_TempestKeepBotScripts();
-void AddSC_HyjalSummitBotScripts();
 void AddSC_IcecrownBotScripts();
-void AddSC_RubySanctumBotScripts();
-void AddSC_randombot_level_mgr();
+void AddSC_HyjalSummitBotScripts();
 
 void AddPlayerbotsScripts()
 {
@@ -530,10 +542,7 @@ void AddPlayerbotsScripts()
     AddPlayerbotsSecureLoginScripts();
     AddPlayerbotsCommandscripts();
     PlayerBotsGuildValidationScript();
-    AddSC_MagtheridonBotScripts();
     AddSC_TempestKeepBotScripts();
-    AddSC_HyjalSummitBotScripts();
     AddSC_IcecrownBotScripts();
-    AddSC_RubySanctumBotScripts();
-    AddSC_randombot_level_mgr();
+    AddSC_HyjalSummitBotScripts();
 }

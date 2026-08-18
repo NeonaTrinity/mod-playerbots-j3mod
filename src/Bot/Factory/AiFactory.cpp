@@ -1,10 +1,10 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "AiFactory.h"
+
 #include "BattlegroundMgr.h"
 #include "DKAiObjectContext.h"
 #include "DruidAiObjectContext.h"
@@ -287,7 +287,7 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
     if (!player->InBattleground())
         engine->addStrategiesNoInit("racials", "chat", "default", "cast time", "potions", "duel", "boost", nullptr);
 
-    if (sPlayerbotAIConfig.autoAvoidAoe && facade->HasGameClientMaster())
+    if (sPlayerbotAIConfig.autoAvoidAoe && facade->HasRealPlayerMaster())
         engine->addStrategy("avoid aoe", false);
 
     engine->addStrategy("formation", false);
@@ -410,7 +410,7 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
             engine->addStrategy("healer dps", false);
     }
 
-    if (IsSelfBot(player) || sRandomPlayerbotMgr.IsRandomBot(player))
+    if (facade->IsRealPlayer() || sRandomPlayerbotMgr.IsRandomBot(player))
     {
         if (!player->GetGroup())
         {

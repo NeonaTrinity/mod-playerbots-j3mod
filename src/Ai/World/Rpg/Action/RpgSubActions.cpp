@@ -1,10 +1,10 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "RpgSubActions.h"
+
 #include "BudgetValues.h"
 #include "ChooseRpgTargetAction.h"
 #include "EmoteAction.h"
@@ -20,7 +20,7 @@
 
 void RpgHelper::OnExecute(std::string nextAction)
 {
-    if (botAI->HasGameClientMaster() && nextAction == "rpg")
+    if (botAI->HasRealPlayerMaster() && nextAction == "rpg")
         nextAction = "rpg cancel";
 
     SET_AI_VALUE(std::string, "next rpg action", nextAction);
@@ -83,7 +83,7 @@ void RpgHelper::setFacing(GuidPosition guidPosition)
 
 void RpgHelper::setDelay(bool waitForGroup)
 {
-    if (!botAI->HasGameClientMaster() || (waitForGroup && botAI->GetGroupLeader() == bot && bot->GetGroup()))
+    if (!botAI->HasRealPlayerMaster() || (waitForGroup && botAI->GetGroupLeader() == bot && bot->GetGroup()))
         botAI->SetNextCheckDelay(sPlayerbotAIConfig.rpgDelay);
     else
         botAI->SetNextCheckDelay(sPlayerbotAIConfig.rpgDelay / 5);
@@ -104,7 +104,7 @@ std::string const RpgSubAction::ActionName() { return "none"; }
 
 Event RpgSubAction::ActionEvent(Event event) { return event; }
 
-bool RpgStayAction::isUseful() { return rpg->InRange() && !botAI->HasGameClientMaster(); }
+bool RpgStayAction::isUseful() { return rpg->InRange() && !botAI->HasRealPlayerMaster(); }
 
 bool RpgStayAction::Execute(Event /*event*/)
 {
@@ -114,7 +114,7 @@ bool RpgStayAction::Execute(Event /*event*/)
     return true;
 }
 
-bool RpgWorkAction::isUseful() { return rpg->InRange() && !botAI->HasGameClientMaster(); }
+bool RpgWorkAction::isUseful() { return rpg->InRange() && !botAI->HasRealPlayerMaster(); }
 
 bool RpgWorkAction::Execute(Event /*event*/)
 {
@@ -123,7 +123,7 @@ bool RpgWorkAction::Execute(Event /*event*/)
     return true;
 }
 
-bool RpgEmoteAction::isUseful() { return rpg->InRange() && !botAI->HasGameClientMaster(); }
+bool RpgEmoteAction::isUseful() { return rpg->InRange() && !botAI->HasRealPlayerMaster(); }
 
 bool RpgEmoteAction::Execute(Event /*event*/)
 {
@@ -147,7 +147,7 @@ bool RpgCancelAction::Execute(Event /*event*/)
     return true;
 }
 
-bool RpgTaxiAction::isUseful() { return rpg->InRange() && !botAI->HasGameClientMaster(); }
+bool RpgTaxiAction::isUseful() { return rpg->InRange() && !botAI->HasRealPlayerMaster(); }
 
 bool RpgTaxiAction::Execute(Event /*event*/)
 {
@@ -280,6 +280,11 @@ bool RpgTrainAction::isPossible()
     if (!cinfo)
         return false;
 
+        // Custom subclass trainers: bots should not path to/use these.
+    if (cinfo->Entry >= 900000 && cinfo->Entry <= 900999)
+         return false;
+
+
     Trainer::Trainer* trainer = sObjectMgr->GetTrainer(cinfo->Entry);
     if (!trainer)
         return false;
@@ -373,7 +378,7 @@ std::vector<Item*> RpgTradeUsefulAction::CanGiveItems(GuidPosition guidPosition)
 
     std::vector<Item*> giveItems;
 
-    if (IsRealPlayer(botAI->GetMaster()) || !GET_PLAYERBOT_AI(player))
+    if (botAI->HasActivePlayerMaster() || !GET_PLAYERBOT_AI(player))
         return giveItems;
 
     std::vector<ItemUsage> myUsages = {ITEM_USAGE_NONE, ITEM_USAGE_VENDOR, ITEM_USAGE_AH, ITEM_USAGE_DISENCHANT};
@@ -430,7 +435,7 @@ bool RpgTradeUsefulAction::Execute(Event /*event*/)
     {
         if (bot->GetTradeData() && bot->GetTradeData()->HasItem(item->GetGUID()))
         {
-            if (bot->GetGroup() && bot->GetGroup()->IsMember(guidP) && botAI->HasGameClientMaster())
+            if (bot->GetGroup() && bot->GetGroup()->IsMember(guidP) && botAI->HasRealPlayerMaster())
                 botAI->TellMasterNoFacing(PlayerbotTextMgr::instance().GetBotTextOrDefault(
                     "rpg_item_better_for_player",
                     "You can use this %item better than me, %player.",

@@ -1,9 +1,3 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
 #ifndef PLAYERBOTS_DTKMULTIPLIERS_H
 #define PLAYERBOTS_DTKMULTIPLIERS_H
 
@@ -15,7 +9,7 @@ class NovosMultiplier : public Multiplier
         NovosMultiplier(PlayerbotAI* ai) : Multiplier(ai, "novos the summoner") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 class TharonjaMultiplier : public Multiplier
@@ -24,7 +18,7 @@ class TharonjaMultiplier : public Multiplier
         TharonjaMultiplier(PlayerbotAI* ai) : Multiplier(ai, "the prophet tharon'ja") {}
 
     public:
-        float GetValue(Action* action) override;
+        virtual float GetValue(Action* action);
 };
 
 #endif

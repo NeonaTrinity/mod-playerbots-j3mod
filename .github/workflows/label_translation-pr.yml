@@ -12,16 +12,13 @@ jobs:
   label-translation:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout base branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          fetch-depth: 0
-
-      - name: Fetch PR head and generate diff
+      - name: Fetch PR diff
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git fetch origin refs/pull/${{ github.event.pull_request.number }}/head
-          git diff ${{ github.event.pull_request.base.sha }}...FETCH_HEAD > pr.diff
+          gh api \
+            repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }} \
+            --header "Accept: application/vnd.github.v3.diff" > pr.diff
 
       - name: Detect ai_playerbot_texts inserts
         id: detect

@@ -1,32 +1,25 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
 #ifndef PLAYERBOTS_RAIDSTRATEGYCONTEXT_H
 #define PLAYERBOTS_RAIDSTRATEGYCONTEXT_H
 
+#include "Strategy.h"
 #include "Aq20Strategy.h"
-#include "BTStrategy.h"
-#include "BWLStrategy.h"
-#include "EoEStrategy.h"
-#include "GruulStrategy.h"
-#include "HyjalStrategy.h"
-#include "ICCStrategy.h"
-#include "KaraStrategy.h"
 #include "MCStrategy.h"
+#include "BWLStrategy.h"
+#include "KaraStrategy.h"
+#include "GruulStrategy.h"
 #include "MagStrategy.h"
 #include "NaxxStrategy.h"
-#include "OSStrategy.h"
-#include "OnyStrategy.h"
-#include "RSStrategy.h"
 #include "SSCStrategy.h"
-#include "Strategy.h"
 #include "TKStrategy.h"
-#include "UldStrategy.h"
-#include "VoAStrategy.h"
+#include "HyjalStrategy.h"
+#include "BTStrategy.h"
 #include "ZAStrategy.h"
+#include "OSStrategy.h"
+#include "EoEStrategy.h"
+#include "VoAStrategy.h"
+#include "UldStrategy.h"
+#include "OnyStrategy.h"
+#include "ICCStrategy.h"
 
 class RaidStrategyContext : public NamedObjectContext<Strategy>
 {
@@ -51,7 +44,6 @@ public:
         creators["ulduar"] = &RaidStrategyContext::ulduar;
         creators["onyxia"] = &RaidStrategyContext::onyxia;
         creators["icc"] = &RaidStrategyContext::icc;
-        creators["rs"] = &RaidStrategyContext::rs;
     }
 
 private:
@@ -73,7 +65,6 @@ private:
     static Strategy* onyxia(PlayerbotAI* botAI) { return new RaidOnyxiaStrategy(botAI); }
     static Strategy* ulduar(PlayerbotAI* botAI) { return new RaidUlduarStrategy(botAI); }
     static Strategy* icc(PlayerbotAI* botAI) { return new RaidIccStrategy(botAI); }
-    static Strategy* rs(PlayerbotAI* botAI) { return new RaidRsStrategy(botAI); }
 };
 
 #endif

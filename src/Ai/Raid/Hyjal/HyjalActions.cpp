@@ -1,7 +1,6 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "HyjalActions.h"
@@ -263,9 +262,7 @@ bool AnetheronMainTankPositionBossAction::Execute(Event /*event*/)
     if (!anetheron)
         return false;
 
-    if (MarkTargetWithSquare(bot, anetheron))
-        return true;
-
+    MarkTargetWithSquare(bot, anetheron);
     SetRtiTarget(botAI, "square", anetheron);
 
     if (AI_VALUE(Unit*, "current target") != anetheron)
@@ -340,7 +337,7 @@ bool AnetheronSpreadRangedInCircleAction::Execute(Event /*event*/)
     {
         constexpr float safeDistFromPlayer = 6.0f;
         constexpr uint32 minInterval = 2000;
-        if (Player* nearestPlayer = GetNearestPlayerInRadius(bot, safeDistFromPlayer))
+        if (Unit* nearestPlayer = GetNearestPlayerInRadius(bot, safeDistFromPlayer))
             return FleePosition(nearestPlayer->GetPosition(), safeDistFromPlayer, minInterval);
     }
 
@@ -395,9 +392,7 @@ bool AnetheronFirstAssistTankPickUpInfernalsAction::Execute(Event /*event*/)
     if (!infernal)
         return false;
 
-    if (MarkTargetWithDiamond(bot, infernal))
-        return true;
-
+    MarkTargetWithDiamond(bot, infernal);
     SetRtiTarget(botAI, "diamond", infernal);
 
     if (AI_VALUE(Unit*, "current target") != infernal)
@@ -671,7 +666,7 @@ bool KazrogalLowManaBotTakeDefensiveMeasuresAction::Execute(Event /*event*/)
 
     constexpr float safeDistance = 16.0f;
 
-    Player* nearestPlayer = GetNearestPlayerInRadius(bot, safeDistance);
+    Unit* nearestPlayer = GetNearestPlayerInRadius(bot, safeDistance);
     if (!nearestPlayer)
         return false;
 
@@ -736,9 +731,7 @@ bool AzgalorMainTankPositionBossAction::Execute(Event /*event*/)
     if (!azgalor)
         return false;
 
-    if (MarkTargetWithStar(bot, azgalor))
-        return true;
-
+    MarkTargetWithStar(bot, azgalor);
     SetRtiTarget(botAI, "star", azgalor);
 
     if (AI_VALUE(Unit*, "current target") != azgalor)
@@ -810,7 +803,7 @@ bool AzgalorDisperseRangedAction::Execute(Event /*event*/)
     }
     else if (!doomguard || AI_VALUE(Unit*, "current target") != doomguard)
     {
-        Player* nearestPlayer = GetNearestPlayerInRadius(bot, safeDistFromPlayer);
+        Unit* nearestPlayer = GetNearestPlayerInRadius(bot, safeDistFromPlayer);
         if (nearestPlayer)
             return FleePosition(nearestPlayer->GetPosition(), safeDistFromPlayer);
     }
@@ -916,9 +909,7 @@ bool AzgalorFirstAssistTankPositionDoomguardAction::Execute(Event /*event*/)
 
     if (Unit* doomguard = AI_VALUE2(Unit*, "find target", "lesser doomguard"))
     {
-        if (MarkTargetWithCircle(bot, doomguard))
-            return true;
-
+        MarkTargetWithCircle(bot, doomguard);
         SetRtiTarget(botAI, "circle", doomguard);
 
         if (AI_VALUE(Unit*, "current target") != doomguard)
@@ -1118,7 +1109,7 @@ bool ArchimondeSpreadToAvoidAirBurstAction::Execute(Event /*event*/)
 
     if (botAI->IsRanged(bot))
     {
-        Player* nearestPlayer = GetNearestPlayerInRadius(bot, safeDistFromPlayer);
+        Unit* nearestPlayer = GetNearestPlayerInRadius(bot, safeDistFromPlayer);
         if (nearestPlayer &&
             FleePosition(nearestPlayer->GetPosition(), safeDistFromPlayer, minInterval))
         {

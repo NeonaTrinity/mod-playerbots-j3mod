@@ -4,6 +4,9 @@
  */
 
 #include "StatsWeightCalculator.h"
+
+#include <memory>
+
 #include "AiFactory.h"
 #include "DBCStores.h"
 #include "ItemEnchantmentMgr.h"
@@ -17,7 +20,6 @@
 #include "SpellMgr.h"
 #include "StatsCollector.h"
 #include "Unit.h"
-#include <memory>
 
 namespace
 {

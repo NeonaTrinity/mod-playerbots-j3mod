@@ -1,14 +1,14 @@
 /*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
  */
 
 #include "BTTriggers.h"
+
 #include "AiFactory.h"
+#include "Playerbots.h"
 #include "BTActions.h"
 #include "BTHelpers.h"
-#include "Playerbots.h"
 #include "RaidBossHelpers.h"
 #include "SharedDefines.h"
 
@@ -18,8 +18,7 @@ using namespace BlackTempleHelpers;
 
 bool BlackTempleBotIsNotInCombatTrigger::IsActive()
 {
-    return bot->GetMapId() == BLACK_TEMPLE_MAP_ID &&
-           !AI_VALUE2(bool, "combat", "self target");
+    return !bot->IsInCombat() && bot->GetMapId() == BLACK_TEMPLE_MAP_ID;
 }
 
 // High Warlord Naj'entus
@@ -160,8 +159,13 @@ bool SupremusVolcanoIsNearbyTrigger::IsActive()
 
 bool SupremusNeedToManagePhaseTimerTrigger::IsActive()
 {
-    return IsMechanicTrackerBot(bot, BLACK_TEMPLE_MAP_ID) &&
-           AI_VALUE2(Unit*, "find target", "supremus");
+    if (!botAI->IsDps(bot))
+        return false;
+
+    if (!AI_VALUE2(Unit*, "find target", "supremus"))
+        return false;
+
+    return IsMechanicTrackerBot(botAI, bot, BLACK_TEMPLE_MAP_ID);
 }
 
 // Shade of Akama
@@ -328,8 +332,8 @@ bool GurtoggBloodboilBotHasFelRageTrigger::IsActive()
 
 bool GurtoggBloodboilNeedToManagePhaseTimerTrigger::IsActive()
 {
-    return IsMechanicTrackerBot(bot, BLACK_TEMPLE_MAP_ID) &&
-           AI_VALUE2(Unit*, "find target", "gurtogg bloodboil");
+    return AI_VALUE2(Unit*, "find target", "gurtogg bloodboil") &&
+           IsMechanicTrackerBot(botAI, bot, BLACK_TEMPLE_MAP_ID);
 }
 
 // Reliquary of Souls
@@ -563,8 +567,14 @@ bool IllidariCouncilDeterminingDpsAssignmentsTrigger::IsActive()
 
 bool IllidariCouncilNeedToManageDpsTimerTrigger::IsActive()
 {
-    return IsMechanicTrackerBot(bot, BLACK_TEMPLE_MAP_ID) &&
-           AI_VALUE2(Unit*, "find target", "gathios the shatterer");
+    if (!botAI->IsDps(bot))
+        return false;
+
+    if (!AI_VALUE2(Unit*, "find target", "gathios the shatterer"))
+        return false;
+
+    return IsMechanicTrackerBot(
+        botAI, bot, BLACK_TEMPLE_MAP_ID, GetZerevorMageTank(bot));
 }
 
 // Illidan Stormrage <The Betrayer>
@@ -809,18 +819,22 @@ bool IllidanStormrageMaievPlacedShadowTrapTrigger::IsActive()
 
 bool IllidanStormrageNeedToManageDpsTimerAndRtiTrigger::IsActive()
 {
-    if (!IsMechanicTrackerBot(bot, BLACK_TEMPLE_MAP_ID))
+    if (!botAI->IsDps(bot))
         return false;
 
     Unit* illidan = AI_VALUE2(Unit*, "find target", "illidan stormrage");
-    return illidan && illidan->GetHealth() > 1;
+    if (!illidan || illidan->GetHealth() == 1)
+        return false;
+
+    return IsMechanicTrackerBot(
+        botAI, bot, BLACK_TEMPLE_MAP_ID, GetIllidanWarlockTank(bot));
 }
 
 // Destroying hazards behind phases is not gated behind CheatMask
 // The strategy simply cannot work without doing this
 bool IllidanStormrageNeedToClearHazardsBetweenPhasesTrigger::IsActive()
 {
-    if (!IsMechanicTrackerBot(bot, BLACK_TEMPLE_MAP_ID))
+    if (!botAI->IsDps(bot))
         return false;
 
     Unit* illidan = AI_VALUE2(Unit*, "find target", "illidan stormrage");
@@ -828,7 +842,11 @@ bool IllidanStormrageNeedToClearHazardsBetweenPhasesTrigger::IsActive()
         return false;
 
     int phase = GetIllidanPhase(illidan);
-    return phase == 0 || phase == 2 || phase == 4;
+    if (phase != 0 && phase != 2 && phase != 4)
+        return false;
+
+    return IsMechanicTrackerBot(
+        botAI, bot, BLACK_TEMPLE_MAP_ID, GetIllidanWarlockTank(bot));
 }
 
 bool IllidanStormrageCheatTrigger::IsActive()

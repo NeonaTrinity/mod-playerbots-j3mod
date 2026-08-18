@@ -1,17 +1,11 @@
-/*
- * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
- * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
- * or (at your option) any later version.
- */
-
 #include "ACMultipliers.h"
 #include "ACActions.h"
 #include "ACTriggers.h"
-#include "AiObjectContext.h"
-#include "FollowActions.h"
 #include "MovementActions.h"
-#include "Playerbots.h"
 #include "ReachTargetActions.h"
+#include "FollowActions.h"
+#include "AiObjectContext.h"
+#include "Playerbots.h"
 
 // Shirrak the Dead Watcher
 
@@ -21,8 +15,8 @@ float ShirrakFleeFocusFireMultiplier::GetValue(Action* action)
     if (!AI_VALUE2(Unit*, "find target", "shirrak the dead watcher"))
         return 1.0f;
 
-    std::list<Creature*> creatureList;
-    bot->GetCreatureListWithEntryInGrid(creatureList, static_cast<uint32>(AuchenaiCryptsIDs::NPC_FOCUS_FIRE), 20.0f);
+        std::list<Creature*> creatureList;
+            bot->GetCreatureListWithEntryInGrid(creatureList, static_cast<uint32>(AuchenaiCryptsIDs::NPC_FOCUS_FIRE), 20.0f);
 
     for (Creature* flare : creatureList)
     {
