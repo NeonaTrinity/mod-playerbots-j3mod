@@ -1,5 +1,5 @@
 
-Experimental Custom playerbots branch for J3mod. currently replies on a modified azerothcore. not for general use at this time.
+Experimental Custom playerbots branch for J3mod.
 
 
 <p align="center">
